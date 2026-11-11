@@ -115,20 +115,66 @@ verdict for the head commit before approving.
 
 A project gets its UI changes browsed by declaring `scripts/local-run.sh`
 ([spec](../../specs/reviewer-browser.md)): it serves the site on `127.0.0.1:$PORT` until stopped.
-`review.sh` reads that it exists at the **base** commit, so a change can't declare it for itself,
-and on every full review runs the head's copy in the throwaway clone:
+`review.sh` reads that it exists at the **base** commit, so a change can't turn the browser on for
+itself, and on every full review runs the head's copy in the throwaway clone
+([build and workspace spec](../../specs/reviewer-local-run-build.md)):
 
-1. A free port, the script in its own process group with the session's variables dropped (as for
-   the reviewer's `claude`), its output logged. The real worktree's `node_modules` (the session's
-   install, not checked against the lockfile) is linked into the clone unless the head tracks one.
-2. Ready on any HTTP status within `LOCAL_RUN_WAIT` (60 s) while it is alive; then
-   `devshop-browse /` once. A run that exits, doesn't answer, or can't be browsed is could-not-run.
-3. The reviewer gets `devshop-browse` on its `PATH`, named in the prompt (the allowlist's
+1. **The packages.** A head with `pnpm-lock.yaml` is installed in the clone with
+   `pnpm install --offline --frozen-lockfile --store-dir <the session's store>` (what
+   `pnpm store path` prints in the real worktree), within `INSTALL_WAIT` (120 s): every workspace
+   package gets its own `node_modules` inside the clone, from the session's store, reaching no
+   registry. No `pnpm` on `PATH`, or an install that fails (usually a lockfile that needs a package
+   the session never installed: install in the session), is could-not-run. Any other project gets
+   the real worktree's root `node_modules` (the session's install, not checked against the
+   lockfile) linked in unless the head tracks one. Links were tried for pnpm and rejected: an
+   OpenNext build through them exited 0 and bundled a Worker that answered 500.
+2. **The build.** When the head has `scripts/build.sh`, the head's copy runs next, with
+   `BUILD_SHA` the head commit, within `BUILD_WAIT` (300 s). The install and the build each run in
+   their own process group with the session's variables dropped, logged; past the limit, or leaving
+   a process behind after it exits, or exiting non-zero, is could-not-run naming the step, and the
+   group is killed.
+3. A free port, the script in its own process group with the session's variables dropped (as for
+   the reviewer's `claude`), its output logged. Ready on any HTTP status within `LOCAL_RUN_WAIT`
+   (60 s) while it is alive; then `devshop-browse /` once. A run that exits, doesn't answer, or
+   can't be browsed is could-not-run. Each could-not-run reason ends with the step's log tail, colour
+   codes removed.
+4. The reviewer gets `devshop-browse` on its `PATH`, named in the prompt (the allowlist's
    `Bash(devshop-browse:*)`; it is left out of the named commands otherwise), and
    [`prompt-browse.md`](prompt-browse.md) at `{{BROWSE}}`: judge each touched page against the base
    commit's `DESIGN.md`, a value it doesn't name at least `medium`, overflow at any width `high`.
-4. Afterwards the group gets TERM, then KILL; a process left or the port still answering is
-   could-not-run. An interrupted review cleans up the same way.
+5. Afterwards the group gets TERM, then KILL; a process left or the port still answering is
+   could-not-run. An interrupted review cleans up the same way, the install's and build's groups
+   included.
+
+**A change that adds `scripts/local-run.sh`** (absent at the base) gets a smoke run: the install,
+the build and the local run as above, stopped as soon as it answers, before the model runs. Any
+failure is could-not-run, so the PR that breaks the local run is the one that can't ship. The
+reviewer gets no browser and the prompt keeps the no-local-run line: the base still decides whether
+a change is browsed.
+
+**The worst case** of a full review round is `INSTALL_WAIT` + `BUILD_WAIT` + `LOCAL_RUN_WAIT` +
+`TIMEOUT`, 120 + 300 + 60 + 900 s, about 23 minutes, so the PR skill runs `ship.sh` in the
+background. The limits are constants; a project that needs more is a finding.
+
+**Playwright at the root.** `devshop-browse` loads Playwright from the clone's root
+`node_modules`, as the render check does: a workspace declares it in its root `package.json`.
+
+**Moving a project to the release with the build step** (a site that must be built first, as a
+Next.js app built with OpenNext is), in its upgrade PR:
+
+1. Declare Playwright in the root `package.json` and run `pnpm install` in the session, so the
+   store holds the new lockfile's packages.
+2. Add `scripts/build.sh`: the build `scripts/local-run.sh` needed, telemetry off
+   (`NEXT_TELEMETRY_DISABLED=1`, `WRANGLER_SEND_METRICS=false`), no build-time fetch from another
+   host.
+3. Make `scripts/local-run.sh` serve that output only, and have `scripts/check-slow.sh` and the
+   design review before `ship` run `scripts/build.sh` before it.
+4. Move `.devshop-version` to the release in the same commit. The reviewer that runs is
+   `/opt/devshop-current`, which the session-start hook points at the worktree's pin, so before
+   `ship` run `bash /opt/devshop-plugin/devshop/hooks/dispatch.sh` from the project root and check
+   the `DEVSHOP:` line names the release (`ak:upgrade` does this from this release's install on).
+   A new session starts on `main`'s pin, so it doesn't help. A `packageManager` pin whose pnpm
+   corepack hasn't cached makes the offline install reach the network or fail.
 
 `devshop-browse <path>` (`browse.mjs`) takes exactly one path starting with `/` and refuses
 anything else, or a path that resolves to another origin, before loading anything. It loads the
@@ -146,7 +192,8 @@ Playwright as a devDependency and install it (`scripts/setup.sh`'s `npm ci`). Ne
 and writes its packages, resolved from an internal mirror, into the project's lockfile (F-NEW-146,
 now stopped by the secret scan's lockfile check).
 
-With no `scripts/local-run.sh` at the base, and in a words-only review, nothing starts: the prompt
+With no `scripts/local-run.sh` at the base or the head, and in a words-only review, nothing starts
+(no install, no build): the prompt
 says there is no local run, and the design and QA lenses review by reading.
 
 ## How it is locked down, and what that is worth
@@ -184,9 +231,13 @@ says there is no local run, and the design and QA lenses review by reading.
   is a fail. A reply that is malformed, incomplete or off-schema is could-not-run, never a pass.
 - No environment variable or argument changes the model, prompt, tools or permissions. Tests change
   only a copy of this directory and put a stub `claude` on `PATH`.
-- The local run and `devshop-browse` ([below](#the-local-run-and-the-browser)) run the change's code
-  as a test run does. They can write through the linked `node_modules` (gitignored, so the worktree
-  check doesn't see it) or replace the `devshop-browse` wrapper on `PATH` (the same user). The
+- The local run, the install, the build and `devshop-browse`
+  ([below](#the-local-run-and-the-browser)) run the change's code as a test run does (pnpm's
+  lifecycle scripts, `scripts/build.sh`). They can write through the linked `node_modules`
+  (gitignored, so the worktree check doesn't see it), into the session's pnpm store (pnpm
+  hard-links the installed files from it), or replace the `devshop-browse` wrapper on `PATH` (the
+  same user). A build daemon that leaves its process group (`setsid`) isn't seen by the leftover
+  check. The
   origin check and request blocking keep an honest reviewer on the local run; they stop nothing
   the change's own code does.
 - This is **feedback, not a wall.** An agent that controls its session can skip or fake all of
@@ -252,6 +303,16 @@ says there is no local run, and the design and QA lenses review by reading.
   baseline's example reports only its tokens), overflow as the render check defines it, other
   origins blocked (requests, WebSockets, fonts, service workers), refusals, and exit 2 when it
   can't judge; 17 of 17 mutants killed (a redundant `//` guard was removed).
+  The build and the workspace ([spec](../../specs/reviewer-local-run-build.md)):
+  [`tests/reviewer.test.sh`](../../tests/reviewer.test.sh) on
+  [`tests/fixtures/reviewer-workspace/`](../../tests/fixtures/reviewer-workspace/README.md), a pnpm
+  workspace whose tool is a workspace package found only through `apps/web/node_modules/.bin`,
+  with the pnpm this repo pins: the offline install in the clone with the session's store, the
+  build with `BUILD_SHA` before the port, what it built served and browsed; could-not-run with the
+  step's reason for a build that exits 1, runs past `BUILD_WAIT` or leaves a process, an install
+  whose lockfile doesn't match or runs past `INSTALL_WAIT`, no `pnpm`, a head that deleted
+  `scripts/build.sh`; an interrupt during the build leaves nothing; the smoke run of a change that
+  adds `scripts/local-run.sh`, passing and failing, with no browser.
   [`tests/reviewer-browser-live.sh`](../../tests/reviewer-browser-live.sh) (`[runs]`, in a session)
   runs the real reviewer on [`tests/fixtures/reviewer-browser/`](../../tests/fixtures/reviewer-browser)
   (spec: [`spec.md`](../../tests/fixtures/reviewer-browser/spec.md)): the notes page built to its
@@ -265,8 +326,8 @@ says there is no local run, and the design and QA lenses review by reading.
   Every `.md` under `specs/` counts, so `specs/` holds spec files only (the Intent skill says so);
   a README or template added there makes the review could-not-run, never a pass.
 - What "run" can run is the allowlist above. Stack homes (W10.5.2) will extend it per stack. The
-  browser needs the project's `scripts/local-run.sh`; without one, the design and QA lenses review
-  by reading and say so. It loads pages; it doesn't click or type.
+  browser needs the project's `scripts/local-run.sh` at the base; without one, the design and QA
+  lenses review by reading and say so (a change that adds it gets a smoke run, not the browser). It loads pages; it doesn't click or type.
 - Rounds count only repeats: a fail is round 1 unless it repeats a blocking item (an unmet `AC-<n>`,
   or a finding's lens and file) of the previous failing commit. Round 3 asks the owner, and so does
   the 6th failing commit since the last pass, new issues or not (owner, 2026-10-13).

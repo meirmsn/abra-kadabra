@@ -34,7 +34,9 @@ under `ak:build` § 3; this skill only puts them on the PR.
 - The title starts with a Conventional Commit type (`feat:`, `fix:`, `docs:`, `chore:`, …; `!`
   before the colon for a breaking change), then the observable change, in ≤ 72 characters: the
   project's `scripts/pr-title-check.py` checks it in `ship` and in CI.
-- Run `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. It checks
+- Run `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>` in the
+  background (`run_in_background`) and wait for its exit: a review can outlast a foreground
+  command's limit (the install, build and local run before the model, then the model). It checks
   the words have the template's shape, then only on the independent reviewer's pass does it push,
   create or update the PR (ready) with those exact words and post the verdict; it is the only way to
   a PR.

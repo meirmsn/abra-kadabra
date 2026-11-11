@@ -15,6 +15,8 @@ MODEL=claude-sonnet-5-5
 TOOLS=Read,Grep,Glob,Bash
 TIMEOUT=900 # seconds
 LOCAL_RUN_WAIT=60 # seconds for the project's local run to answer (specs/reviewer-browser.md)
+INSTALL_WAIT=120  # seconds for the offline install in the clone (specs/reviewer-local-run-build.md)
+BUILD_WAIT=300    # seconds for the project's scripts/build.sh (specs/reviewer-local-run-build.md)
 ROUNDS_TO_ASK=3
 FAILS_TO_ASK=6 # distinct failing commits since the last pass, new issues or not
 # Variables that tie a nested claude to the session that started it, by name pattern (W10.6.8): the
@@ -26,12 +28,53 @@ SESSION_TIE_PATTERNS=('CLAUDE_CODE_*SESSION*' '*INGRESS*' '*MESSAGING*' 'CLAUDE_
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 usage="usage: review.sh --base <rev> [--pr <file>]"
 scratch=""
-local_pgid="" local_port=""
+local_pgid="" local_port="" step_pgid="" step_why=""
 
-# The project's local run (specs/reviewer-browser.md) runs in its own process group. group_alive:
-# a process of it that isn't a zombie is left. local_answers: its port gives any HTTP status.
+# The project's local run (specs/reviewer-browser.md), and the install and build before it
+# (specs/reviewer-local-run-build.md), each run in their own process group. group_alive [<pgid>]: a
+# process of the group (default: the local run's) that isn't a zombie is left. local_answers: the
+# local run's port gives any HTTP status.
 group_alive() {
-  ps -e -o pgid= -o stat= | awk -v g="$local_pgid" '$1 == g && $2 !~ /^Z/ { f = 1 } END { exit !f }'
+  ps -e -o pgid= -o stat= | awk -v g="${1:-$local_pgid}" '$1 == g && $2 !~ /^Z/ { f = 1 } END { exit !f }'
+}
+# kill_group <pgid>: TERM to the group, KILL after 5 s; fails when a process of it is still left.
+kill_group() {
+  local i
+  kill -TERM -- "-$1" 2>/dev/null
+  for i in $(seq 50); do group_alive "$1" || break; sleep 0.1; done
+  kill -KILL -- "-$1" 2>/dev/null
+  for i in $(seq 20); do group_alive "$1" || break; sleep 0.1; done
+  ! group_alive "$1"
+}
+# log_tail <file>: its last 300 bytes on one line, ANSI escape sequences removed.
+log_tail() { sed 's/\x1b\[[0-9;?]*[A-Za-z]//g' "$1" | tail -c 300 | tr '\n' ' '; }
+# run_step <limit name> <limit> <log> <command...>: runs the command in the clone in its own process
+# group with the session's variables dropped, its output to <log>. Fails, with $step_why set, when it
+# is still running at the limit (the group is killed), leaves a process of its group behind after it
+# exits (killed too), or exits non-zero.
+run_step() {
+  local name=$1 limit=$2 log=$3 i st rc done=0
+  shift 3
+  set -m
+  (cd "$scratch/repo" && drop_session_ties && exec "$@") </dev/null >"$log" 2>&1 &
+  step_pgid=$!
+  set +m
+  for i in $(seq $((limit * 4))); do
+    st=$(ps -o stat= -p "$step_pgid" 2>/dev/null)
+    case $st in '' | Z*) done=1; break ;; esac
+    sleep 0.25
+  done
+  if [ "$done" = 0 ]; then
+    kill_group "$step_pgid"; wait "$step_pgid" 2>/dev/null; step_pgid=""
+    step_why="did not finish within $name (${limit}s)"; return 1
+  fi
+  wait "$step_pgid"; rc=$?
+  if group_alive "$step_pgid"; then
+    kill_group "$step_pgid"; step_pgid=""
+    step_why="left a process behind (it exited $rc)"; return 1
+  fi
+  step_pgid=""
+  [ "$rc" = 0 ] || { step_why="exited $rc"; return 1; }
 }
 local_answers() {
   [ "$(curl --noproxy '*' -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:$local_port/" 2>/dev/null)" != 000 ]
@@ -51,6 +94,7 @@ stop_local_run() {
 }
 # shellcheck disable=SC2329  # run by the EXIT trap
 cleanup() {
+  [ -z "$step_pgid" ] || kill_group "$step_pgid" || true
   stop_local_run || true
   [ -z "$scratch" ] || rm -rf "$scratch"
 }
@@ -235,11 +279,16 @@ if ! { git init -q "$scratch/repo" \
 fi
 
 # --- The local run (specs/reviewer-browser.md): a full review of a project that declares
-#     scripts/local-run.sh at the base commit, so a change can't declare one for itself, runs the
-#     head's copy and gives the reviewer `devshop-browse`. Started further down, after the prompt.
-local_run=0
-if [ "$scope" = full ] && [ "$(git -C "$repo" cat-file -t "$base_sha:scripts/local-run.sh" 2>/dev/null)" = blob ]; then
+#     scripts/local-run.sh at the base commit, so a change can't turn the browser on for itself, runs
+#     the head's copy and gives the reviewer `devshop-browse`. Started further down, after the prompt.
+# A change that adds scripts/local-run.sh gets a smoke run (specs/reviewer-local-run-build.md):
+# installed, built, started and answering, then stopped before the model runs, with no browser.
+local_run=0 smoke=0
+at() { [ "$(git -C "$repo" cat-file -t "$1:$2" 2>/dev/null)" = blob ]; } # at <commit> <path>
+if [ "$scope" = full ] && at "$base_sha" scripts/local-run.sh; then
   local_run=1
+elif [ "$scope" = full ] && at "$head" scripts/local-run.sh; then
+  smoke=1
 fi
 
 case "$intent" in
@@ -320,19 +369,38 @@ drop_session_ties() {
   done
 }
 
-# --- Start the local run: a free port, its own process group (set -m), the session's variables
-#     dropped as for the reviewer, the real worktree's node_modules linked in (the session's install)
-#     unless the head tracks one. Ready on any HTTP status while it is alive; then `devshop-browse /`
-#     once, so a review that can't browse is could-not-run, never a review by reading.
+# --- Start the local run: the packages (an offline pnpm install, or the session's node_modules
+#     linked), the head's scripts/build.sh, then a free port and the script in its own process group
+#     (set -m), the session's variables dropped as for the reviewer. Ready on any HTTP status while it
+#     is alive. A smoke run stops there; a declared one runs `devshop-browse /` once, so a review that
+#     can't browse is could-not-run, never a review by reading.
 browse_path=""
-if [ "$local_run" = 1 ]; then
-  for t in curl python3 node; do command -v "$t" >/dev/null || cnr "$t not found (the local run needs it)"; done
+if [ "$local_run" = 1 ] || [ "$smoke" = 1 ]; then
+  tools=(curl python3)
+  [ "$local_run" = 0 ] || tools+=(node)
+  for t in "${tools[@]}"; do command -v "$t" >/dev/null || cnr "$t not found (the local run needs it)"; done
   [ -f "$scratch/repo/scripts/local-run.sh" ] || cnr "the base declares scripts/local-run.sh and the head has none"
-  if [ -d "$repo/node_modules" ] && [ ! -e "$scratch/repo/node_modules" ] \
+  # The packages (specs/reviewer-local-run-build.md): a pnpm project is installed offline from the
+  # session's store, every workspace package's node_modules inside the clone; any other project gets
+  # the real worktree's root node_modules linked in, unless the head tracks one.
+  if at "$head" pnpm-lock.yaml; then
+    command -v pnpm >/dev/null || cnr "pnpm not found (the head has pnpm-lock.yaml, so the review installs it offline in its clone)"
+    store=$(cd "$repo" && pnpm store path 2>/dev/null) && [ -n "$store" ] || cnr "pnpm store path failed in the worktree"
+    run_step INSTALL_WAIT "$INSTALL_WAIT" "$scratch/install.log" pnpm install --offline --frozen-lockfile --store-dir "$store" \
+      || cnr "the install in the clone (pnpm install --offline --frozen-lockfile) $step_why: $(log_tail "$scratch/install.log")"
+  elif [ -d "$repo/node_modules" ] && [ ! -e "$scratch/repo/node_modules" ] \
     && [ -z "$(git -C "$scratch/repo" ls-files -- node_modules)" ]; then
     ln -s "$repo/node_modules" "$scratch/repo/node_modules" || cnr "could not link node_modules into the clone"
   fi
-  printf '/node_modules\n/.devshop-browse/\n' >>"$scratch/repo/.git/info/exclude" || cnr "could not write the clone's exclude file"
+  printf '/node_modules\nnode_modules/\n/.devshop-browse/\n' >>"$scratch/repo/.git/info/exclude" || cnr "could not write the clone's exclude file"
+  # The build, before the port is picked: the head's scripts/build.sh, with BUILD_SHA the head.
+  build_note=""
+  if at "$head" scripts/build.sh; then
+    run_step BUILD_WAIT "$BUILD_WAIT" "$scratch/build.log" env BUILD_SHA="$head" bash scripts/build.sh \
+      || cnr "the build (scripts/build.sh) $step_why: $(log_tail "$scratch/build.log")"
+  elif at "$base_sha" scripts/build.sh; then
+    build_note=" (the head deleted scripts/build.sh)"
+  fi
   local_port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])') \
     || cnr "could not pick a free port"
   set -m
@@ -349,14 +417,19 @@ if [ "$local_run" = 1 ]; then
   if [ "$ready" = 0 ]; then
     why="did not answer on 127.0.0.1:$local_port within ${LOCAL_RUN_WAIT}s"
     group_alive || why="exited before it answered"
-    cnr "the local run (scripts/local-run.sh) $why: $(tail -c 300 "$scratch/local-run.log" | tr '\n' ' ')"
+    cnr "the local run (scripts/local-run.sh) $why$build_note: $(log_tail "$scratch/local-run.log")"
   fi
+fi
+if [ "$smoke" = 1 ]; then
+  stop_local_run || cnr "the smoke run of scripts/local-run.sh left a process behind, or its port still answers"
+fi
+if [ "$local_run" = 1 ]; then
   mkdir -p "$scratch/bin" || cnr "mkdir failed"
   { printf '#!/usr/bin/env bash\nexport DEVSHOP_BROWSE_ORIGIN=%q DEVSHOP_BROWSE_PROJECT=%q DEVSHOP_BROWSE_OUT=%q\nexec node %q "$@"\n' \
     "http://127.0.0.1:$local_port" "$scratch/repo" "$scratch/repo/.devshop-browse" "$here/browse.mjs" \
     >"$scratch/bin/devshop-browse" && chmod 0755 "$scratch/bin/devshop-browse"; } || cnr "could not write devshop-browse"
   (cd "$scratch/repo" && drop_session_ties && "$scratch/bin/devshop-browse" /) >"$scratch/browse-check.log" 2>&1 \
-    || cnr "devshop-browse / failed before the review: $(tail -c 300 "$scratch/browse-check.log" | tr '\n' ' ')"
+    || cnr "devshop-browse / failed before the review: $(log_tail "$scratch/browse-check.log")"
   rm -rf "$scratch/repo/.devshop-browse"
   browse_path="$scratch/bin:"
 fi

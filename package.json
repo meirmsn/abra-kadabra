@@ -4,6 +4,7 @@
   "description": "Pins the devshop's own dev tools; CI installs them with npm ci.",
   "devDependencies": {
     "playwright": "1.63.0",
+    "pnpm": "10.28.0",
     "prettier": "3.9.9"
   }
 }

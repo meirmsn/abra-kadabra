@@ -1,0 +1,9 @@
+{
+  "name": "@fixture/site-tool",
+  "version": "1.0.0",
+  "private": true,
+  "bin": {
+    "site-tool": "bin/site-tool.js"
+  },
+  "type": "module"
+}
