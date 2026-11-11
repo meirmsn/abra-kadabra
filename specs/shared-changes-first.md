@@ -1,6 +1,6 @@
 # Shared changes and flaky-test fixes land first, in their own small PR
 
-**Go:** pending
+**Go:** "go" (owner, 2026-11-11)
 
 ## Intent
 
