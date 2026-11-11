@@ -1,10 +1,21 @@
 #!/bin/bash
 # Fake nc: -z succeeds for an ip:port listed in $FAKE/nc_open (shell patterns); -l waits.
+# A listener without -k stands for one that closes after its first connection: the Mac's own
+# check uses it up, so here it closes at once. Without $FAKE/no-listeners, -z to an address with a
+# fake listener needs that listener alive.
 case " $* " in
-  *" -l "*) /bin/sleep 30; exit 0 ;;
+  *" -l "*)
+    case " $* " in *" -k "*) ;; *) exit 0 ;; esac
+    [ ! -f "$FAKE/no-listeners" ] || exit 1
+    /bin/sleep 30
+    exit 0 ;;
 esac
 ip="" port=""
 for a in "$@"; do ip=$port port=$a; done
+if [ -f "$FAKE/listen-addresses" ] && grep -qx "$ip" "$FAKE/listen-addresses"; then
+  pgrep -f "nc -k -l $ip $port" >/dev/null
+  exit
+fi
 while IFS= read -r pat; do
   # shellcheck disable=SC2254 # the lines are patterns
   case "$ip:$port" in $pat) exit 0 ;; esac

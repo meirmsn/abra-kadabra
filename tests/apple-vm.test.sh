@@ -51,6 +51,7 @@ new_env() {
   : >"$FAKE/vmprocs"
   : >"$FAKE/calls"
   printf '%s\n' '192.0.2.10:*' '192.168.64.1:*' '192.0.2.1:53' >"$FAKE/nc_open"
+  printf '%s\n' 192.0.2.10 192.168.64.1 >"$FAKE/listen-addresses"
   echo "PROBE gateway value 192.168.64.1" >"$FAKE/probe/gateway"
   echo "PROBE host-path blocked nothing shared" >"$FAKE/probe/host-path"
   echo "PROBE connect blocked no connection" >"$FAKE/probe/connect"
@@ -85,7 +86,12 @@ is_running() { [ -f "$(vm_dir "$1")/running" ] && kill -0 "$(cat "$(vm_dir "$1")
 state() { sed -n "s/^$2=//p" "$D/apple-vm/$1" 2>/dev/null; }
 # edit_file <file> <sed expression>: sed without -i, which BSD and GNU spell differently.
 edit_file() { sed "$2" "$1" >"$1.new" && mv "$1.new" "$1"; }
-set_state() { edit_file "$D/apple-vm/$1" "s/^$2=.*/$2=$3/"; }
+# set_state <vm> <key> <value>: under the scripts' own lock folder, as they write it too.
+set_state() {
+  wait_for 5 mkdir "$D/apple-vm/$1.lock" || fail "the state of $1 stays locked"
+  edit_file "$D/apple-vm/$1" "s/^$2=.*/$2=$3/"
+  rmdir "$D/apple-vm/$1.lock"
+}
 calls_with() { grep -c -- "$1" "$FAKE/calls" || true; }
 start_ok() { run_cmd "$V" start "$1" --tart-dir "$D"; expect_rc 0 "start $1"; }
 
@@ -175,6 +181,16 @@ run_cmd "$V" list --tart-dir "$D"
 printf '%s\n' "$out" | grep -q "deleting task-8: not running and no supervisor" || fail "orphan not reported: $out"
 no_vm task-8 || fail "a stopped VM with no supervisor survived the sweep"
 ok "apple-vm-host-script AC-4: a stopped VM with no supervisor is deleted"
+
+new_env
+ftart clone base task-8 >/dev/null
+printf 'status=starting\nstarter=%s\n' "$$" >"$D/apple-vm/task-8"
+run_cmd "$V" list --tart-dir "$D"
+has_vm task-8 || fail "a sweep deleted a VM another start is setting up"
+printf 'status=starting\nstarter=999999\n' >"$D/apple-vm/task-8"
+run_cmd "$V" list --tart-dir "$D"
+no_vm task-8 || fail "a VM whose start died survived the sweep"
+ok "apple-vm-host-script AC-4: a sweep leaves a VM another start is setting up, not one whose start died"
 
 new_env
 start_ok 6
@@ -348,8 +364,16 @@ new_env
 attack_fails "a probe with no output" FAIL host-path
 grep -q "^FAIL host-path probe couldn't run" "$T/report" || fail "no can't-run detail"
 new_env
-printf '%s\n' '192.0.2.1:53' >"$FAKE/nc_open"
+touch "$FAKE/no-listeners"
 attack_fails "a listener that never answers" FAIL mac
+new_env
+# shellcheck disable=SC2016 # the script's own text, not an expansion
+sed 's/"$NC" -k -l/"$NC" -l/' "$ATK" >"$ATK.new" && cat "$ATK.new" >"$ATK" && rm -f "$ATK.new"
+git -C "$T/repo" commit -qam "listener without -k, for the test"
+attack_fails "a listener that closes after its first connection" FAIL mac
+new_env
+echo "something else entirely" >"$FAKE/probe/persist-check"
+attack_fails "a probe output with no PROBE line" FAIL persist
 new_env
 printf '%s\n' '192.0.2.10:*' '192.168.64.1:*' >"$FAKE/nc_open"
 attack_fails "a router that answers nothing" FAIL lan
@@ -450,6 +474,7 @@ ok "apple-vm-host-script AC-11: an interrupted known-bad deletes task-99, its fo
 # ---- apple-vm-probe.sh, in a fake guest ----
 
 new_env
+rm -f "$FAKE/listen-addresses" # in the guest, nc answers from nc_open only
 G="$T/guest"
 mkdir -p "$G/Volumes" "$G/Users/admin" "$G/Users/Shared" "$G/Library/LaunchDaemons"
 ln -s / "$G/Volumes/Macintosh HD"

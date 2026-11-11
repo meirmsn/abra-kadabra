@@ -156,12 +156,20 @@ state_get() {
   [ -f "$f" ] || return 1
   sed -n "s/^$2=//p" "$f" | head -n 1
 }
+# state_set <name> <key> <value>: start and the supervisor both write the file, so a lock folder
+# makes each read-modify-write whole.
 state_set() {
-  local f tmp
+  local f tmp tries=0
   f=$(state_file "$1")
   tmp="$f.tmp.$$"
+  until mkdir "$f.lock" 2>/dev/null; do
+    tries=$((tries + 1))
+    [ $tries -le 200 ] || refuse "the state file of $1 stays locked ($f.lock)"
+    sleep 0.05
+  done
   { grep -v "^$2=" "$f" 2>/dev/null || true; echo "$2=$3"; } >"$tmp"
   mv "$tmp" "$f"
+  rmdir "$f.lock"
 }
 
 # supervisor_alive <name>: its recorded supervisor runs and carries its nonce.
@@ -199,11 +207,21 @@ stop_vm() {
 
 task_vms() { vm_names | while IFS= read -r v; do ! is_task_name "$v" || echo "$v"; done; }
 
+# starting <name>: another `start` is still setting this VM up (its process still runs).
+starting() {
+  local pid
+  [ "$(state_get "$1" status || true)" = starting ] || return 1
+  pid=$(state_get "$1" starter || true)
+  case $pid in '' | *[!0-9]*) return 1 ;; esac
+  kill -0 "$pid" 2>/dev/null
+}
+
 # sweep: delete task VMs past their deadline, or stopped with no live supervisor.
 sweep() {
   local t v deadline
   t=$(now)
   for v in $(task_vms); do
+    ! starting "$v" || continue
     deadline=$(state_get "$v" deadline || true)
     if [ -n "$deadline" ] && [ "$t" -ge "$deadline" ]; then
       say "deleting $v: past its time limit"
@@ -217,8 +235,8 @@ sweep() {
   for f in "$state_dir"/task-*; do
     [ -f "$f" ] || continue
     v=${f##*/}
-    case $v in *.tmp.*) rm -f "$f"; continue ;; esac
-    vm_exists "$v" || rm -f "$f"
+    case $v in *.tmp.* | *.lock) continue ;; esac
+    starting "$v" || vm_exists "$v" || rm -f "$f"
   done
 }
 
@@ -286,18 +304,21 @@ start() {
   [ "$base_free" -ge $((START_FREE_GB * GB_KB)) ] ||
     refuse "the Mac has $((base_free / GB_KB)) GB free; start needs $START_FREE_GB GB"
 
-  tart clone base "$name" || refuse "tart clone failed"
+  # The state file comes first, marked starting, so a sweep in another Terminal leaves the VM alone.
+  rm -f "$(state_file "$name")"
+  state_set "$name" status starting
+  state_set "$name" starter "$$"
+  tart clone base "$name" || { rm -f "$(state_file "$name")"; refuse "tart clone failed"; }
   tart set "$name" --cpu "$CPU" --memory "$MEMORY_MB" || { stop_vm "$name"; refuse "tart set failed"; }
   t=$(now)
   nonce=$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')
-  rm -f "$(state_file "$name")"
   state_set "$name" nonce "$nonce"
   state_set "$name" started "$t"
   state_set "$name" deadline $((t + hours * 3600))
   state_set "$name" start_free_kb "$(free_kb)"
-  state_set "$name" status running
   nohup "$self" _supervise "$n" --tart-dir "$dir" --nonce "$nonce" >>"$state_dir/$name.log" 2>&1 </dev/null &
   state_set "$name" pid "$!"
+  state_set "$name" status running
 
   tries=0
   until tart exec "$name" /usr/bin/true >/dev/null 2>&1; do

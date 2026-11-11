@@ -34,6 +34,7 @@ MUTANTS = [
     ("AC-7 softnet owner unchecked", V, 'if [ "$uid" -ne 0 ] || [ $((8#$mode & 2048)) -eq 0 ]; then', 'if [ $((8#$mode & 2048)) -eq 0 ]; then'),
     # AC-4 and AC-5: the supervisor
     ("AC-4 no nonce check", V, '  [ "$(state_get "$name" nonce || true)" = "$nonce" ] || return 1\n', ""),
+    ("AC-4 sweep ignores starts", V, '    ! starting "$v" || continue\n', ""),
     ("AC-4 sweep keeps orphans", V, 'elif ! vm_running "$v" && ! supervisor_alive "$v"; then', 'elif false; then'),
     ("AC-5 growth cap 70 GB", V, "MAX_GROWTH_GB=60", "MAX_GROWTH_GB=70"),
     ("AC-5 stop floor 20 GB", V, "STOP_FREE_GB=30", "STOP_FREE_GB=20"),
@@ -47,6 +48,7 @@ MUTANTS = [
     ("AC-9 dirty checkout allowed", A, '[ -z "$(git -C "$repo" status --porcelain)" ] ||', 'true ||'),
     ("AC-9 no clean-up on exit", A, "trap cleanup EXIT", "trap '' EXIT"),
     ("AC-9 every line counts", A, '[ "$lines" -gt 0 ] && [ "$lines" -eq "$good" ] || exit 1', 'true || exit 1'),
+    ("AC-10 listener closes after one connection", A, '"$NC" -k -l', '"$NC" -l'),
     ("AC-10 no listener control", A, 'if "$NC" -z -G 2 "$mac_lan_ip" "$port" >/dev/null 2>&1 && "$NC" -z -G 2 "$gw" "$port" >/dev/null 2>&1; then', "if true; then"),
     ("AC-10 no lower load bound", A, "c >= 300 && c <= 440 && r >= 6 * g && r <= 10 * g", "c <= 440 && r <= 10 * g"),
     ("AC-10 no upper load bound", A, "c >= 300 && c <= 440 && r >= 6 * g && r <= 10 * g", "c >= 300 && r >= 6 * g"),
