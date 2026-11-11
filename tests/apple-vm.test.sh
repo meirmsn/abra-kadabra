@@ -184,11 +184,12 @@ has_vm task-6 || fail "a supervisor deleted a VM whose state names another nonce
 ok "apple-vm-host-script AC-4: a supervisor never deletes a VM restarted under another nonce"
 
 new_env
+echo $((80 * GB)) >"$FAKE/free_kb"
 start_ok 7
-echo $((25 * GB)) >"$FAKE/free_kb"
+echo $((25 * GB)) >"$FAKE/free_kb" # 55 GB less: only the 30 GB floor can trip it
 wait_for 5 sh -c "grep -q '^status=disk-stopped' '$D/apple-vm/task-7'" || fail "not stopped for disk at 25 GB free"
 wait_for 5 sh -c "! test -f '$(vm_dir task-7)/running'" || fail "task-7 still runs after the disk stop"
-echo $((500 * GB)) >"$FAKE/free_kb"
+echo $((80 * GB)) >"$FAKE/free_kb"
 run_cmd "$V" list --tart-dir "$D"
 printf '%s\n' "$out" | grep -q "^task-7 stopped disk-stopped supervised" || fail "list: $out"
 has_vm task-7 || fail "a disk-stopped VM with its supervisor was deleted"
