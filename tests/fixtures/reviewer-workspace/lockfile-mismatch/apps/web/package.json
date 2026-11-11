@@ -1,0 +1,8 @@
+{
+  "name": "web",
+  "private": true,
+  "dependencies": {
+    "@fixture/site-tool": "workspace:*",
+    "left-pad": "1.3.0"
+  }
+}

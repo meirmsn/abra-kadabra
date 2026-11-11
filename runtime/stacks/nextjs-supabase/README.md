@@ -103,7 +103,9 @@ checked. The template's design part runs `design-md-check.mjs` once `DESIGN.md` 
 `node scripts/ui/render-check.mjs --url <page> --out <dir>` on every path in `quality/routes.json`,
 over `scripts/local-run.sh` on a free local port, as the Cloudflare home's quality bar does, waiting
 for `/` to answer (not `/build.txt`). A signed-in page renders the sign-in page it redirects to, so
-the list holds public pages. On a Workers app the local run is the OpenNext build and `wrangler dev`.
+the list holds public pages. On a Workers app the OpenNext build is `scripts/build.sh` and the local
+run is `wrangler dev` serving its output, `scripts/build.sh` run first by every caller (the
+reviewer's [build step](../../reviewer/README.md#the-local-run-and-the-browser)).
 
 **An existing app adopts in two steps.** Its own theme almost surely fails `tokens-check.mjs`, and
 adoption needs both tiers green. So: adopt with `THEME_CSS` empty and without the `ui-tokens.sh`

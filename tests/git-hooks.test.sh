@@ -137,7 +137,7 @@ grep -Eq "^DEVSHOP: the project doesn't meet the project contract: scripts/check
 echo "ok - AC-5: a missing and a malformed required item are one DEVSHOP: line naming each"
 git -C "$c" checkout -q -- scripts/check-slow.sh && chmod +x "$c/scripts/secret-scan.sh"
 # Every optional item present: nothing at all about the contract.
-for f in scripts/lint.sh scripts/lint-file.sh scripts/deploy.sh scripts/local-run.sh; do
+for f in scripts/lint.sh scripts/lint-file.sh scripts/deploy.sh scripts/local-run.sh scripts/build.sh; do
   printf '#!/usr/bin/env bash\nexit 0\n' >"$c/$f" && chmod +x "$c/$f"
 done
 cp "$repo_root/runtime/templates/ui/tokens-check.mjs" "$repo_root/runtime/templates/ui/render-check.mjs" \

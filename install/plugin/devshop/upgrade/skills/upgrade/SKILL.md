@@ -53,8 +53,11 @@ stops on `none` as "not in the devshop copy": say the seeds weren't compared.
 
 ## 4. Open the PR
 
-Commit everything in one commit, then invoke `ak:pr`, which writes the body from the PR
-template (a pin from before it has no `pr` skill: follow `ak:build`'s PR section). The title
+Commit everything in one commit. Then point the session at NEW, so NEW's reviewer reviews the PR
+that moves to it: run `bash /opt/devshop-plugin/devshop/hooks/dispatch.sh` from the project root
+(the session-start hook, which reads the committed pin) and check that the `DEVSHOP:` line it prints
+says it is using NEW; anything else is a stop, with the line, for the owner. Then invoke `ak:pr`,
+which writes the body from the PR template (a pin from before it has no `pr` skill: follow `ak:build`'s PR section). The title
 says what moves, e.g. "chore: pin the devshop to v2.1.1, <what the project gains>". **What you
 should know** lists each file with its owner and outcome (applied, changed, skipped and why), any
 file removed from the manifest, and the checks you ran; no Announcement.

@@ -1,0 +1,17 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .: {}
+
+  apps/web:
+    dependencies:
+      '@fixture/site-tool':
+        specifier: workspace:*
+        version: link:../../packages/tools/site-tool
+
+  packages/tools/site-tool: {}

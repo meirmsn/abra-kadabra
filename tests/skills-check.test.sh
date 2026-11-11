@@ -165,3 +165,21 @@ echo "See /devshop:upgrade." >"$work/ac4/docs/README.md"
 found=$(stray "$repo_root")
 [ -z "$found" ] || fail "AC-4: these still name devshop:<skill>, the plugin's old name: ${found//$'\n'/ }"
 echo "ok - AC-4: nothing outside this test names devshop:<skill>, and a stray one is caught"
+
+# reviewer-local-run-build AC-8: the upgrade re-points the session at NEW after committing the pin
+# and checks the DEVSHOP: line, before ak:pr; the pr skill runs ship.sh in the background.
+up=$(tr -s '\n' ' ' <"$plugin_skills/upgrade/SKILL.md")
+# shellcheck disable=SC2016 # literal backticks: the skills' Markdown
+for want in 'Commit everything in one commit. Then point the session at NEW' \
+  'run `bash /opt/devshop-plugin/devshop/hooks/dispatch.sh` from the project root' \
+  'check that the `DEVSHOP:` line it prints says it is using NEW; anything else is a stop'; do
+  grep -qF "$want" <<<"$up" || fail "reviewer-local-run-build AC-8: the upgrade skill lacks: $want"
+done
+# shellcheck disable=SC2016 # literal backticks: the skills' Markdown
+[ "$(grep -o 'dispatch.sh\|invoke `ak:pr`' <<<"$up" | head -2 | paste -sd' ')" = 'dispatch.sh invoke `ak:pr`' ] ||
+  fail "reviewer-local-run-build AC-8: the upgrade skill invokes ak:pr before re-running the dispatcher"
+# shellcheck disable=SC2016 # literal backticks: the skill's Markdown
+tr -s '\n' ' ' <"$repo_root/runtime/skills/pr/SKILL.md" |
+  grep -qF '/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>` in the background (`run_in_background`) and wait for its exit' ||
+  fail "reviewer-local-run-build AC-8: the pr skill doesn't run ship.sh in the background"
+echo "ok - reviewer-local-run-build AC-8: the upgrade re-points at NEW before ak:pr; ship.sh runs in the background"
