@@ -145,6 +145,8 @@ The plugin is `ak`, so a session lists these as `ak:<name>` (`ak:intent`, `ak:bu
 
 One file per change in [`specs/`](../specs), kept after merge as context (TARGET § L3 Intent).
 
+- [`apple-vm-host-script.md`](../specs/apple-vm-host-script.md): the VM lane's host script on the
+  local Mac (start, list, stop, kill-all) and the attacks run from inside its VMs (R-24)
 - [`big-changes-in-slices.md`](../specs/big-changes-in-slices.md): a whole app or a big feature
   is split into slices on the owner's approval, recorded on the roadmap and built one PR each
 - [`bootstrap-result-at-session-start.md`](../specs/bootstrap-result-at-session-start.md): the
