@@ -3368,7 +3368,7 @@ fetch a Swift toolchain (host denied, Docker Hub 429) nor GitHub's artifact stor
 ## #104 — 2026-11-01 · The Apple proposal, revised for private repos
 
 **What moved**: the owner's answers in chat on PR 166: private repositories must work, and the agent
-should drive Xcode on the owner's Mac with strictly limited access. The proposal now puts the agent
+should drive Xcode on the local Mac with strictly limited access. The proposal now puts the agent
 in a throwaway Tart VM on that Mac, attached through Remote Control, with agent-desktop for the GUI;
 GitHub's macOS runners only run `slow` once per push. The owner's own-account setup (one folder,
 computer use for Xcode, App Sandbox) is option E: the same controls inside the VM are the plan. A
@@ -3422,7 +3422,7 @@ offered on the owner's account; starting a session in the VM's bridge environmen
 ## #108 — 2026-11-10 · D-20: native Apple apps in a throwaway VM
 
 **What moved**: the owner answered the Apple proposal's twelve questions one at a time in chat, now
-D-20. The agent works only inside a throwaway VM on the owner's Mac (the Air now, a Mac mini later).
+D-20. The agent works only inside a throwaway VM on the local Mac (the Air now, a Mac mini later).
 Required macOS CI runs on GitHub's runners with a spending limit. The Air stays on macOS 15 for about
 half a year, so phase 2 uses the pinned Tart and no Xcode plugin. Signing is deferred. TARGET's
 Environments 7 now says so.

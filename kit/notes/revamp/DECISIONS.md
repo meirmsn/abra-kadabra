@@ -163,7 +163,7 @@ Outcome: **decided 2026-10-09 — A, branch → PR → CI → owner merges**, fo
 - **B. Keep local first-class with full hardening.**
 - **C. Cloud-only** — use Remote Control for macOS/iOS/offline work.
 
-**Superseded for the Mac by [D-20](#d-20-native-apple-apps-the-agent-works-only-in-a-throwaway-vm--decided) (2026-11-10):** the agent works only inside a throwaway macOS VM on the owner's Mac.
+**Superseded for the Mac by [D-20](#d-20-native-apple-apps-the-agent-works-only-in-a-throwaway-vm--decided) (2026-11-10):** the agent works only inside a throwaway macOS VM on the local Mac.
 
 Outcome: **decided 2026-10-09 — cloud-first; local = a dedicated Mac** (TARGET L2 Environments): native builds, simulators, devices, and fallback when the cloud falls short. Claude runs there as a non-admin user with only the developer accounts it needs (macOS VM only if insufficient). The v1 devcontainer + root-owned-copies model retires with v1; local services run in walled-off containers.
 
@@ -390,11 +390,11 @@ a time in chat; their words are quoted.
 
 Outcome: **decided 2026-11-09 and 2026-11-10 (owner, in chat)**:
 
-1. **The agent only ever works inside a throwaway macOS VM on the owner's Mac, never on a Mac
+1. **The agent only ever works inside a throwaway macOS VM on the local Mac, never on a Mac
    directly** ("yes"). This replaces TARGET Environments 7's "non-admin user on a dedicated Mac; a
    macOS VM only if that proves insufficient" (D-02 direction, D-17).
 2. **The test on the Air:** done, 2026-11-09.
-3. **The VMs run on the owner's MacBook Air now, a dedicated Mac mini later** ("A now, B later"),
+3. **The VMs run on the local MacBook Air now, a dedicated Mac mini later** ("A now, B later"),
    when the Air being closed gets in the way.
 4. **Required macOS CI for private repos runs on GitHub's hosted macOS runner, once per push** ("A"),
    with an Actions spending limit, $20 a month to start (the recommendation the owner took).

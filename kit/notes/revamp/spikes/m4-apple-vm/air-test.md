@@ -1,4 +1,4 @@
-# The one-hour test on the owner's MacBook Air
+# The one-hour test on the local MacBook Air
 
 A manual test for the owner, kept with the spike: does the design in
 [the Apple proposal](../../apple-native-proposal.md) § 4 work on the Air itself? It checks three
