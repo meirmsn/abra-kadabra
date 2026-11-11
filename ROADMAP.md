@@ -31,6 +31,9 @@ too; an entry is `Done` when its task is `[x]`.
 | R-21 | 2026-11-10 | Pinned tools survive a release-host outage: cached for the session, a sanctioned repair, and a session that can't push says so up front (F-NEW-158, F-NEW-159) | Done, PR #191 |
 | R-22 | 2026-11-10 | Parallel branches stop conflicting on shared lists and counters: lists derived from one manifest, tests that count from it, finding IDs that can't collide (F-NEW-161) | Done, PR #193 |
 | R-23 | 2026-11-10 | Shared changes and flaky-test fixes land first, in their own small PR; a flake seen twice gets that PR, not a re-run (F-NEW-164) | Done, PR #194 |
+| R-24 | 2026-11-11 | Phase 2 of the Apple design, the VM lane on the local Mac: the host script (start, list, stop, kill all), the base image recipe, the egress allowlist proxy, the attack tests, and a check that a VM session lists no connectors; on macOS 15 with the pinned Tart (D-20) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
+| R-25 | 2026-11-11 | The first Apple app in its own private repo, on R-24's VMs: the engine first, then the GUI (phases 3 and 4) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
+| R-26 | 2026-11-11 | The pilot web app's iOS app, in the web app's own repo, starting with how that repo is organized to hold both; takes turns with R-25 on the local Mac, neither waits for the other to finish (phase 7, part of R-8) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
 
 ## R-14: The session-start hook reads the wrong directory after a restart
 
@@ -89,3 +92,32 @@ Would it make sense to fix the three of them on the same PR or different PRs? Re
 The findings, as logged:
 
 - F-NEW-164: Shared changes and fixes to shared or flaky tests ride inside unrelated feature PRs: a shell prompt every item uses shipped inside one item's PR, so every other branch adapted its tests; a fix for a flaky test (a size measured mid-animation) sat in a branch near the end of the queue while that flake failed CI on at least three other PRs; two more flakes stayed unfixed. No devshop rule says a change to shared code or a shared flake fix goes first in its own small PR, or that a session seeing an unrelated flake twice proposes that PR instead of re-running.
+
+## R-24, R-25, R-26: The VM lane, then the two Apple apps
+
+Asked 2026-11-11, in chat in a devshop session, after PR #166 (D-20) merged, when Claude asked what
+comes next. The two app names are replaced by the descriptions in brackets (the rule on other
+projects); the rest is word for word:
+
+```text
+setting up to startbuilding [the first Apple app] and in parallel do [the pilot web app's] ios? maybe not in parallel at the same time due to RAM but meaning no neeed to finish [the first Apple app] t work on iphone app
+```
+
+Claude proposed R-24 first, as the shared foundation, then R-25 and R-26 as two tracks taking turns
+on the Air. The owner's answers, the same day, to "is this order right?" and "same repo as the web
+app, or its own?":
+
+```text
+1, yes
+
+2. web app repo and should be thought how to organize the repo to do so
+```
+
+### Claude's notes
+
+- R-24 is the proposal's phase 2; its done-when is the attack list there. The Air stays on macOS 15
+  (D-20 item 11), so no Xcode plugin in the base image yet.
+- R-25 and R-26 take turns because the Air's memory fits one VM at a time.
+- The devshop's own Apple pieces (the Apple stack home, the CI template's macOS runner) still wait
+  for the pilot web app's adoption, W10.11.6 (D-20 item 10).
+- The Actions spending limit ($20 a month) is set when R-25's private repo starts (D-20).
