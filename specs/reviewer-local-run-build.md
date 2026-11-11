@@ -1,6 +1,6 @@
 # The reviewer installs a pnpm workspace and runs the project's build before its local run
 
-**Go:** pending
+**Go:** "go" (owner, 2026-11-11)
 
 ## Intent
 
