@@ -9,10 +9,15 @@ harvest's engineering lessons (Build 8, [lessons.md](../../kit/notes/revamp/less
   changes what a page renders (there is no "design" discipline; `build` names it): `DESIGN.md`
   first, what enforces what, the surface, the placeholder rule, components and motion, done, never
   ([spec](../../specs/design-guideline.md)).
+- [`flaky-tests.md`](flaky-tests.md): a CI failure in a test the change doesn't touch: never
+  re-run, the cause reproduced and fixed in its own PR that merges first, how to find the cause,
+  where to look first and what a fix never does ([spec](../../specs/shared-changes-first.md)).
 - [`parallel.md`](parallel.md): every change that adds an item to a collection (a page, a game, a
-  route): one file per item, the lists, counts and versions derived from them, tests and specs that
-  state the rule and not the count, and the count check that enforces it
-  ([spec](../../specs/parallel-safe-shared-files.md); proven by
+  route), and a change that needs shared code changed (it goes first, in its own PR): one file per
+  item, the lists, counts and versions derived from them, tests and specs that state the rule and
+  not the count, the count check that enforces it, and shared changes first
+  ([spec](../../specs/parallel-safe-shared-files.md),
+  [spec](../../specs/shared-changes-first.md); proven by
   [`tests/count-check.test.sh`](../../tests/count-check.test.sh)).
 - [`ui.md`](ui.md): every user interface: responsive, light and dark with a toggle, the control
   contract, starting from [`runtime/templates/ui/`](../templates/ui/) and checked by its three
