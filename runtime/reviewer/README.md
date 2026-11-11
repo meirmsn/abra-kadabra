@@ -312,7 +312,10 @@ says there is no local run, and the design and QA lenses review by reading.
   step's reason for a build that exits 1, runs past `BUILD_WAIT` or leaves a process, an install
   whose lockfile doesn't match or runs past `INSTALL_WAIT`, no `pnpm`, a head that deleted
   `scripts/build.sh`; an interrupt during the build leaves nothing; the smoke run of a change that
-  adds `scripts/local-run.sh`, passing and failing, with no browser.
+  adds `scripts/local-run.sh`, passing and failing, stopped before the model runs, with no browser;
+  20 of 20 mutants killed (the install's flags and store, the pnpm check, the build's presence,
+  `BUILD_SHA`, order, limit, leftover check, exit code and cleanup, the colour strip, the deleted-
+  build note, and the smoke run's start, early stop, no browser and no words-only run).
   [`tests/reviewer-browser-live.sh`](../../tests/reviewer-browser-live.sh) (`[runs]`, in a session)
   runs the real reviewer on [`tests/fixtures/reviewer-browser/`](../../tests/fixtures/reviewer-browser)
   (spec: [`spec.md`](../../tests/fixtures/reviewer-browser/spec.md)): the notes page built to its
