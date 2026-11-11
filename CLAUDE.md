@@ -25,6 +25,11 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
   merge (or approves it); being behind `main` alone is no reason to touch the branch or re-run CI.
   The owner merges PRs one at a time, in order, so each pays one update-and-CI round. Don't
   rebase or force-push a pushed branch.
+- A change to shared code, or a fix to a shared or flaky test, goes first in its own small PR
+  ([parallel.md](runtime/guidelines/parallel.md#shared-changes-go-first-in-their-own-pr)); a branch
+  waiting on it merges `main` once it has merged. A test that fails on a change that doesn't touch
+  it is never re-run: reproduce it, fix its cause, and that fix goes first
+  ([flaky-tests.md](runtime/guidelines/flaky-tests.md)).
 - Commit subjects and PR titles start with a Conventional Commit type (`feat:`, `fix:`, `docs:`, …;
   `!` before the colon for a breaking change), then describe the observable change, in ≤ 72
   characters. The PR title is what lands on `main` and decides the release

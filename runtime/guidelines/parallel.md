@@ -1,11 +1,12 @@
-# Parallel work on shared lists
+# Parallel work on shared lists and shared code
 
 Read by every change that adds an item to a collection: a page, a game, a route, a menu entry, a
-cache entry ([spec](../../specs/parallel-safe-shared-files.md)). Several sessions often work at
+cache entry ([spec](../../specs/parallel-safe-shared-files.md)); and by every change that turns out
+to need a change to shared code ([spec](../../specs/shared-changes-first.md)). Several sessions often work at
 once, one branch each, merged one at a time. A file every branch edits conflicts on every branch
 after each merge. GitHub then runs no CI on the conflicted PRs, and each fix costs a round of
 merging `main` and running CI again. Once, ten branches of one project each conflicted in the same
-six places. The rules below leave a branch nothing shared to edit.
+six places. The rules below leave a branch nothing shared to edit, and land what must be shared first.
 
 ## One file per item, everything else derived
 
@@ -47,3 +48,23 @@ six places. The rules below leave a branch nothing shared to edit.
 When `ak:split` plans slices that each add an item, the first such slice sets up the layout (the
 directory or manifest, the derived lists and the hashed version) and the `COLLECTIONS` entry, so
 every later slice only adds a file.
+
+## Shared changes go first, in their own PR
+
+**Shared** is code, config or a test that more than one item, page or feature uses, or that every
+branch's CI runs: a `shared/` directory, a layout, a helper, a test over all items. Once, a prompt
+every item used shipped inside one item's PR, and every other branch had to adapt its tests.
+
+- **A feature that turns out to need a shared change stops there.** Raise it with the owner as a
+  spec change (`ak:intent` step 5). On a yes it is its own change: its own spec and go, or, with no
+  real choice in it, a bug fix whose failing test is the spec. The fix to a shared or flaky test
+  is one too ([flaky-tests.md](flaky-tests.md)).
+- **The same session builds it,** on its own branch cut from a freshly fetched `main`, after
+  committing the feature branch's work. Its PR tells the owner it should merge before the PRs that
+  wait on it.
+- **The waiting feature PR isn't shipped until the shared PR has merged;** then its branch merges
+  `main` once and ships.
+- **A shared change already pushed on a feature branch moves out** with a revert commit there,
+  never a rebase or force-push.
+- **The owner declines the separate PR:** the shared change stays in the feature PR, and the PR's
+  body says so.
