@@ -1,0 +1,61 @@
+#!/bin/bash
+# A fake Tart 2.34.0 for tests/apple-vm.test.sh: VMs are folders under $TART_HOME/vms, every call is
+# logged to $FAKE/calls, and the test steers it through files in $FAKE.
+set -u
+echo "tart $*" >>"$FAKE/calls"
+vms="$TART_HOME/vms"
+mkdir -p "$vms"
+running() { [ -f "$vms/$1/running" ] && kill -0 "$(cat "$vms/$1/running")" 2>/dev/null; }
+cmd=${1:-}
+shift || true
+case $cmd in
+  --version) cat "$FAKE/version" 2>/dev/null || echo 2.34.0 ;;
+  list)
+    case " $* " in
+      *" --quiet "*) ls "$vms" ;;
+      *) echo '[ ]' ;;
+    esac ;;
+  get)
+    [ -d "$vms/$1" ] || { echo "no VM $1" >&2; exit 1; }
+    if running "$1"; then r=true; else r=false; fi
+    printf '{\n  "CPU" : 4,\n  "Running" : %s,\n  "Size" : "%s",\n  "State" : "x"\n}\n' "$r" "$(cat "$vms/$1/size" 2>/dev/null || echo 87.000)" ;;
+  clone)
+    [ -d "$vms/$1" ] || { echo "no VM $1" >&2; exit 1; }
+    [ ! -e "$vms/$2" ] || { echo "$2 exists" >&2; exit 1; }
+    cp -R "$vms/$1" "$vms/$2"
+    rm -f "$vms/$2/running" "$vms/$2/run-args" ;;
+  set) [ -d "$vms/$1" ] || exit 1; echo "$*" >"$vms/$1/set-args" ;;
+  run)
+    name=$1
+    [ -d "$vms/$name" ] || exit 1
+    echo "$*" >"$vms/$name/run-args"
+    echo $$ >"$vms/$name/running"
+    trap 'rm -f "$vms/$name/running"; exit 0' TERM INT
+    while [ -d "$vms/$name" ] && [ ! -f "$vms/$name/stop-requested" ]; do /bin/sleep 0.05; done
+    rm -f "$vms/$name/running" "$vms/$name/stop-requested" ;;
+  stop)
+    [ -d "$vms/$1" ] || exit 1
+    touch "$vms/$1/stop-requested"
+    for _ in $(seq 40); do running "$1" || break; /bin/sleep 0.05; done ;;
+  delete)
+    [ -d "$vms/$1" ] || exit 1
+    ! running "$1" || { echo "$1 runs" >&2; exit 1; }
+    rm -rf "${vms:?}/$1" ;;
+  exec)
+    [ "${1:-}" = -i ] && shift
+    name=$1
+    shift
+    running "$name" || exit 1
+    [ ! -f "$FAKE/exec-dead" ] || exit 1
+    case "$1" in
+      /usr/bin/true) exit 0 ;;
+      /bin/bash)
+        if [ "$2" = -c ]; then exit "$(cat "$FAKE/dns-exit" 2>/dev/null || echo 0)"; fi
+        cat >/dev/null
+        p=$4
+        [ ! -x "$FAKE/hook-$p" ] || "$FAKE/hook-$p" "$name"
+        if [ -f "$FAKE/probe/$name/$p" ]; then cat "$FAKE/probe/$name/$p"; else cat "$FAKE/probe/$p" 2>/dev/null; fi ;;
+      *) exit 1 ;;
+    esac ;;
+  *) echo "fake tart: unknown $cmd" >&2; exit 1 ;;
+esac

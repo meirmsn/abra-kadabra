@@ -1,0 +1,3 @@
+#!/bin/bash
+# Fake sleep: a short real pause, so the scripts' waits take milliseconds.
+/bin/sleep 0.02

@@ -1,0 +1,3 @@
+#!/bin/bash
+# Fake pbpaste: the guest's clipboard in the probe test, else the Mac's.
+if [ -f "$FAKE/guest-clipboard" ]; then cat "$FAKE/guest-clipboard"; else cat "$FAKE/clipboard" 2>/dev/null; fi

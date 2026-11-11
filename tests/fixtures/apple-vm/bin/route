@@ -1,0 +1,4 @@
+#!/bin/bash
+# Fake route -n get default (the Mac's, or the guest's in the probe test).
+echo "   gateway: $(cat "$FAKE/gateway" 2>/dev/null || echo 192.0.2.1)"
+echo " interface: en0"

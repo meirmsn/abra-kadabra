@@ -28,6 +28,7 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 | [`.github/`](../.github)                   | CI (`workflows/ci.yml`), the release button (`workflows/release.yml`) and `CODEOWNERS` (the owner approves every change)                             |
 | [`bootstrap.sh`](../bootstrap.sh)          | Entry point the cloud environments' setup script runs; its path must not change                                                                      |
 | [`install/`](../install/README.md)         | The install: bootstrap, plugin, dispatcher, the gstack and tools pins                                                                                |
+| [`mac/`](../mac/README.md)                 | The VM lane's scripts the owner runs on the local Mac: start and stop throwaway VMs, attack them (R-24)                                              |
 | [`runtime/`](../runtime)                   | What `.devshop-version` selects: `skills/`, `hooks/`, `git-hooks/`, `scripts/`, `reviewer/`, and `project-contract.txt`, what every project provides |
 | [`kit/notes/revamp/`](../kit/notes/revamp) | Revamp plan, decisions, findings, lessons, log, and the spikes (kept as notes)                                                                       |
 | [`docs/images/`](images)                   | The social preview image for the repository's settings                                                                                               |

@@ -33,7 +33,7 @@ too; an entry is `Done` when its task is `[x]`.
 | R-23 | 2026-11-10 | Shared changes and flaky-test fixes land first, in their own small PR; a flake seen twice gets that PR, not a re-run (F-NEW-164) | Done, PR #194 |
 | R-24 | 2026-11-11 | The VM lane, slice 1: the host script (`apple-vm.sh start`, `list`, `stop`, `kill-all`, with a time limit, a two-VM cap and free-disk check, never touching `base`), tested with a fake Tart; from inside a VM on the local Mac a scripted attack run fails to read a host path, reach the Mac or the LAN, leave anything for the next task, change `base`, fill the Mac's disk, or exceed its CPU or memory (D-20) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
 | R-27 | 2026-11-11 | The VM lane, slice 2: the egress allowlist proxy, with softnet blocking every address but the proxy's; from inside a VM, reaching a host off the list, bypassing the proxy, IPv6 and DNS all fail | Open |
-| R-28 | 2026-11-11 | The VM lane, slice 3: the base image recipe: a standard `agent` user who can still run UI tests and agent-desktop, an admin password the agent never sees, the tools, a managed settings file, then the one Claude login and a check that a VM session lists no connectors; attacks: sudo, a signing identity, a `.p12` or `.mobileprovision` file, a browser without its sandbox, editing the managed settings | Open |
+| R-28 | 2026-11-11 | The VM lane, slice 3: the base image recipe, `base` pinned by digest: a standard `agent` user who can still run UI tests and agent-desktop, an admin password the agent never sees, the tools, a managed settings file, then the one Claude login and a check that a VM session lists no connectors; attacks: sudo, a signing identity, a `.p12` or `.mobileprovision` file, a browser without its sandbox, editing the managed settings | Open |
 | R-29 | 2026-11-11 | The VM lane, slice 4: a session in the VM: the Remote Control attach, how long a VM login lasts, and how `ship.sh` and the reviewer run for it; done when a session ships a PR from a VM | Open |
 | R-25 | 2026-11-11 | The first Apple app in its own private repo, on the VM lane (R-24, R-27 to R-29): the engine first, then the GUI (phases 3 and 4) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
 | R-26 | 2026-11-11 | The pilot web app's iOS app, in the web app's own repo, starting with how that repo is organized to hold both; takes turns with R-25 on the local Mac, neither waits for the other to finish (phase 7, part of R-8) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
@@ -160,7 +160,7 @@ The owner approved the split's shape and order; the detail of each slice below, 
 
 - **R-24, the host script and the first attacks.** No daemon on the Mac: each `apple-vm.sh`
   command deletes task VMs past their time limit, after a warning. The script refuses a third VM,
-  a name already taken and any action on `base`; `base` is pinned by digest; the Tart folder is an
+  a name already taken and any action on `base`; the Tart folder is an
   argument, not each Terminal's exports. The attacks are a script in this repo that the Mac runs
   into the VM and that writes a report on the Mac; the PR carries it, and a known-bad run (the same
   script on a VM without softnet) that must report failures. Where the script lives is settled in
@@ -174,7 +174,9 @@ The owner approved the split's shape and order; the detail of each slice below, 
 - **R-28, the base image.** The login is the recipe's last step, run by the owner with the
   clipboard on for that step only, and the no-connectors check runs before any session. Its
   known-bad case is a session with a connector attached. D-20 item 5's gate is met (the owner's
-  confirmation above). Apple's Xcode plugin is not in it (D-20 item 11).
+  confirmation above). Apple's Xcode plugin is not in it (D-20 item 11). `base` pinned by digest
+  moved here from R-24, with the owner's go on R-24's spec, which listed the move: "Correct. Apply
+  the fixes per the adversarial review, and then you get the go." (2026-11-11).
 - **R-29, a session in the VM.** Attaching a cloud session to a VM folder isn't offered on the
   owner's account, so the VM session has no cloud container beside it; its spec settles how
   `ship.sh` and the reviewer, whose browser stays out of the VM, run for it.

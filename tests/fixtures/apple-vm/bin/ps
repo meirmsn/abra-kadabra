@@ -1,0 +1,7 @@
+#!/bin/bash
+# Fake ps: the VM processes from $FAKE/vmprocs and the samples from $FAKE/vmsamples; else the real ps.
+case "$*" in
+  "-axo comm=") cat "$FAKE/vmprocs" 2>/dev/null; exit 0 ;;
+  "-axo pid=,%cpu=,rss=,comm=") cat "$FAKE/vmsamples" 2>/dev/null; exit 0 ;;
+esac
+exec /bin/ps "$@"

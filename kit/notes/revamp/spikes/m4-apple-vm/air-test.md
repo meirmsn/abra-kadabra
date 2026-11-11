@@ -54,8 +54,10 @@ synced or backed-up folder. `<dir>` below is that folder; the owner used one und
 
 `tart run air-test --net-softnet --no-clipboard`
 
-A window opens with a Mac inside. `--net-softnet` lets the VM reach the internet but not the Mac or
-the home network; `--no-clipboard` stops copy and paste between them. Cirrus' images log in on their
+A window opens with a Mac inside. `--net-softnet` lets the VM reach the internet but not the home
+network, nor the Mac's LAN address; it does let the VM reach the Mac through softnet's gateway, on
+every port (found 2026-11-11 in softnet 0.21.1's source; task VMs add `--net-softnet-block=@host`,
+`mac/apple-vm.sh`); `--no-clipboard` stops copy and paste between them. Cirrus' images log in on their
 own as user `admin` (password `admin`, _check_ if asked). Open Terminal **inside the VM window** for
 every command below until step 6.
 

@@ -1,0 +1,3 @@
+#!/bin/bash
+# Fake sw_vers.
+echo 15.6.1

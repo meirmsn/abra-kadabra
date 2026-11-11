@@ -1,0 +1,10 @@
+#!/bin/bash
+# Fake BSD stat -f: softnet's owner and mode from $FAKE/softnet_stat; size and time from GNU stat.
+[ "$1" = -f ] || exec /usr/bin/stat "$@"
+case $3 in
+  */softnet) cat "$FAKE/softnet_stat" 2>/dev/null || echo "0 104755" ;;
+  *)
+    # On the Mac the real stat is BSD's; on Linux, GNU's speaks -c.
+    if [ "$(uname)" = Darwin ]; then exec /usr/bin/stat "$@"; fi
+    /usr/bin/stat -c '%s %Y' "$3" ;;
+esac

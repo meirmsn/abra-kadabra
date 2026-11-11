@@ -1,0 +1,3 @@
+#!/bin/bash
+# Fake date +%s: the clock in $FAKE/clock; any other use is the real date.
+if [ "$*" = +%s ] && [ -f "$FAKE/clock" ]; then cat "$FAKE/clock"; else exec /bin/date "$@"; fi

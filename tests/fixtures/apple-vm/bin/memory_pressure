@@ -1,0 +1,3 @@
+#!/bin/bash
+# Fake memory_pressure.
+echo "System-wide memory free percentage: 50%"

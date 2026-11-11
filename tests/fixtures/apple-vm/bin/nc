@@ -1,0 +1,12 @@
+#!/bin/bash
+# Fake nc: -z succeeds for an ip:port listed in $FAKE/nc_open (shell patterns); -l waits.
+case " $* " in
+  *" -l "*) /bin/sleep 30; exit 0 ;;
+esac
+ip="" port=""
+for a in "$@"; do ip=$port port=$a; done
+while IFS= read -r pat; do
+  # shellcheck disable=SC2254 # the lines are patterns
+  case "$ip:$port" in $pat) exit 0 ;; esac
+done <"$FAKE/nc_open"
+exit 1

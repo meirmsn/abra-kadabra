@@ -1,0 +1,3 @@
+#!/bin/bash
+# Fake ipconfig getifaddr: the Mac's LAN address.
+echo 192.0.2.10

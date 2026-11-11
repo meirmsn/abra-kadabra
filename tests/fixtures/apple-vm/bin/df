@@ -1,0 +1,4 @@
+#!/bin/bash
+# Fake df -Pk: the free space the test wrote to $FAKE/free_kb.
+echo "Filesystem 1024-blocks Used Available Capacity Mounted"
+echo "/dev/fake 1000000000 0 $(cat "$FAKE/free_kb") 1% /"

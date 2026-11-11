@@ -1,0 +1,3 @@
+#!/bin/bash
+# Fake sysctl -n, for the probe test.
+case $2 in hw.ncpu) echo 4 ;; hw.memsize) echo 8589934592 ;; *) exit 1 ;; esac

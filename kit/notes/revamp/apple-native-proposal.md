@@ -26,7 +26,7 @@
   project folder, with the owner approving the attach, and runs its commands there: builds, UI tests,
   screenshots it reads back, clicking through the running app, the debugger.
 - **The walls around the box:** no folder of the Mac's shared in (one read-only model folder at
-  most), no shared clipboard, Tart's isolated network (no way to the Mac or the home network) and an
+  most), no shared clipboard, Tart's isolated network with the Mac blocked too (no way to the Mac or the home network) and an
   allowlist proxy for the internet, CPU and memory limits, at most two VMs.
 - **Private repositories work** with no Actions minutes for the agent's loop: it runs on the local
   Mac. Required CI stays on GitHub: `fast` on Linux, and `slow` on a hosted macOS runner once per push
@@ -159,7 +159,7 @@ accessibility snapshots, clone or reset, and network isolation.
               ▼
  the local Mac: runs Tart and the host script, nothing else of the devshop's or Claude's
  └─ VM "task-<n>" (cloned from a clean, pinned Xcode image; deleted after the task)
-      network: Tart softnet (no host, no LAN) → allowlist proxy → GitHub, Swift packages, models, Anthropic
+      network: Tart softnet, @host blocked (no Mac, no LAN) → allowlist proxy → GitHub, Swift packages, models, Anthropic
       shares: none, or one read-only model folder · clipboard off · 4 CPU / 8 GB (the Air) · ≤ 2 VMs
       ├─ ~/dev/<project>      git clone; a GitHub token for this repository only
       ├─ claude remote-control  ← every command of the session runs here
@@ -175,10 +175,13 @@ accessibility snapshots, clone or reset, and network isolation.
 
 **The pieces, in the existing layout:**
 
-- **On the Mac, one tested host script** (`apple-vm.sh start|list|stop|kill-all`, in the Apple stack
-  home): `start` clones the base image to `task-<n>`, sets its CPU and memory, and runs it with
-  `--net-softnet --no-clipboard` and no shares but the model folder; `kill-all` stops and deletes every
-  task VM. A watchdog deletes a VM older than its time limit. The owner runs it; nothing in the VM can.
+- **On the Mac, one tested host script** (`mac/apple-vm.sh start|list|stop|kill-all`, R-24,
+  [spec](../../../specs/apple-vm-host-script.md)): `start` clones the base image to `task-<n>`, sets
+  its CPU and memory, and runs it with `--net-softnet-block=@host --no-clipboard` and no shares;
+  `kill-all` stops and deletes every task VM. Softnet alone lets a VM reach the Mac through its
+  gateway on every port (softnet 0.21.1, `lib/proxy/vm.rs`), hence `@host`. Each VM's own
+  supervisor, no daemon, deletes it at its time limit and stops it on low disk. The owner runs it;
+  nothing in the VM can.
 - **The base image**, built on purpose by a script the owner runs (Packer, Tart's plugin): a Cirrus
   Xcode image pinned by digest, plus Claude Code, agent-desktop, XcodeGen and the devshop's pinned
   tools. Agents never change it. Inside it, the agent is **not an administrator**: Cirrus' images log
@@ -227,7 +230,7 @@ a different Mac than the VMs (§ 10, item 3).
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Files**            | No folder of the Mac shared in, except one read-only model folder outside any home folder. The guest's own SIP is off and its permissions pre-granted (as in GitHub's and Cirrus' images): that weakens only the throwaway guest.                                                                                                                                                        | No owner machine involved.                                                                                                                                                                          |
 | **Credentials**      | Inside the VM: a claude.ai login (Remote Control refuses API keys) and a fine-grained GitHub token for this one repository (contents and pull requests). Branch protection and the owner's approval bound the token. **The login is the residual risk**: code in the VM could read it; the proxy limits where it could send it, and the owner signs the device out after a run of tasks. | `slow` holds only a read-only, per-job `GITHUB_TOKEN`. Release: Developer ID certificate and App Store Connect key as secrets of a `release` environment limited to `main`, a job the owner starts. |
-| **Network**          | Tart softnet: no traffic to the Mac or private address ranges, no inbound. The VM reaches only the proxy, which allows GitHub, the Swift package hosts, the model hosts and Anthropic's.                                                                                                                                                                                                 | GitHub's VMs reach the internet (not filterable); nothing secret is in `slow`.                                                                                                                      |
+| **Network**          | Tart softnet with `@host` blocked: no traffic to the Mac (softnet alone allows its gateway, the Mac, on every port) or private address ranges, no inbound. The VM reaches only the proxy, which allows GitHub, the Swift package hosts, the model hosts and Anthropic's.                                                                                                                 | GitHub's VMs reach the internet (not filterable); nothing secret is in `slow`.                                                                                                                      |
 | **Persistence**      | A fresh clone per task, deleted after; the watchdog deletes any VM past its limit; the base image changes only when the owner rebuilds it.                                                                                                                                                                                                                                               | The VM is discarded after the job; caches are per branch and model files hash-checked after restore.                                                                                                |
 | **Resources**        | CPU and memory set per VM, disk fixed, at most 2 VMs (licence), the task's time limit, and `apple-vm.sh kill-all`.                                                                                                                                                                                                                                                                       | `timeout-minutes`; cancelling the run; the Actions spending limit.                                                                                                                                  |
 | **The code itself**  | Runs only in the VM. The app keeps the App Sandbox on, so a build the owner later installs is confined too.                                                                                                                                                                                                                                                                              | Runs only in the job's VM; reaches the owner as a notarized build from `release`.                                                                                                                   |

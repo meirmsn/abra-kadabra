@@ -3431,3 +3431,16 @@ Environments 7 now says so.
 suspended. So no Claude login goes into a VM until it is back.
 
 **Next**: phase 2, the VM machinery, as the owner puts it on the roadmap.
+
+## #109 — 2026-11-11 · The VM lane split; R-24's host scripts
+
+**What moved**: the owner approved splitting phase 2 into R-24, R-27, R-28 and R-29 after an
+adversarial review. R-24's spec took three more reviews and the owner's choices on disk (a start
+margin and a floor the supervisor checks) and DNS (Cloudflare). `mac/` holds the host script, the
+attack run and its known-bad twin, tested on Linux against a fake Tart, with a mutant run.
+
+**Surprises**: softnet lets a VM reach the Mac through its gateway on every port; the test on the
+Air probed only the Mac's LAN address. Task VMs now block `@host`. Tart asks for softnet's setuid
+password only in an interactive Terminal.
+
+**Next**: the owner's run on the Mac, then R-27.
