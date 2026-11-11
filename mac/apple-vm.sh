@@ -10,6 +10,8 @@
 #   apple-vm.sh stop <n> --tart-dir <dir>                  n: 1-99 (stops and deletes)
 #   apple-vm.sh kill-all --tart-dir <dir>
 # <dir> holds bin/ (the tart wrapper and softnet) and tart-home/ (TART_HOME).
+# Internal: `start` runs `apple-vm.sh _supervise <n> --tart-dir <dir> --nonce <nonce>` with nohup as
+# the VM's supervisor; it isn't for the owner to run.
 # Exit 0 = done; 1 = refused or failed; 2 = usage.
 set -eu -o pipefail
 
@@ -55,7 +57,7 @@ case $cmd in
     [ $# -gt 0 ] || usage "$cmd needs <n>"
     n=$1; shift ;;
   list | kill-all) ;;
-  _supervise | _tick)
+  _supervise)
     [ $# -gt 0 ] || usage "$cmd needs <n>"
     n=$1; shift ;;
   *) usage "unknown command '${cmd}'" ;;
@@ -70,7 +72,7 @@ while [ $# -gt 0 ]; do
 done
 case $cmd in
   start) valid_n "$n" 98 || usage "start takes <n> from 1 to 98 (99 is the known-bad run's)" ;;
-  stop | _supervise | _tick) valid_n "$n" 99 || usage "<n> must be a whole number from 1 to 99" ;;
+  stop | _supervise) valid_n "$n" 99 || usage "<n> must be a whole number from 1 to 99" ;;
 esac
 case $hours in '' | 0* | *[!0-9]*) usage "--hours must be 1 to 24" ;; esac
 [ "$hours" -ge 1 ] && [ "$hours" -le 24 ] || usage "--hours must be 1 to 24"
@@ -340,5 +342,4 @@ case $cmd in
     sweep ;;
   kill-all) sweep; kill_all ;;
   _supervise) supervise "task-$n" ;;
-  _tick) nonce=$(state_get "task-$n" nonce || true); tick "task-$n" || true ;;
 esac
