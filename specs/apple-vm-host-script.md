@@ -12,134 +12,185 @@ only ever works inside a throwaway macOS VM on the local Mac.
 
 This slice gives the owner one tested command on the local Mac to start, list, stop and delete
 those VMs, and a second one that attacks a VM from inside and writes a report. It shows, on the
-real Mac, that from inside a VM the agent can't read a host path, reach the Mac or the LAN, leave
-anything for the next task, change `base`, fill the Mac's disk, or use more than its CPU and
-memory. The proxy (R-27), the standard user and the login (R-28) and the session in the VM (R-29)
-come later; until R-27 and R-28 ship, no token or login goes into a VM.
+real Mac, that from inside a VM the agent can't read a host path, reach the Mac or the LAN, use the
+clipboard, leave anything for the next task, change `base`, fill the Mac's disk, or use more than
+its CPU and memory. The proxy (R-27), the standard user and the login (R-28) and the session in the
+VM (R-29) come later; until R-27 and R-28 ship, no token or login goes into a VM.
+
+**A gap this slice closes.** Softnet 0.21.1 lets a VM reach the softnet gateway, which is the local
+Mac itself, on every port, unless a rule says otherwise (`lib/proxy/vm.rs`, `allowed_from_vm_ipv4`:
+"allow communication with the host, otherwise things like SSH to a VM won't work"). The owner's
+test probed the Mac's LAN address, which softnet does block, so its "Mac blocked" held only there;
+any service on the Mac listening on all its addresses was reachable from the VM. The proposal's
+§ 4 and § 5 and the test's record are corrected in this change.
 
 ## Decisions
 
 - **Where the scripts live: a new top-level `mac/`** (`mac/apple-vm.sh`, `mac/apple-vm-attacks.sh`,
   `mac/README.md`): they run only on the local Mac, by the owner, never in a cloud session or a
   project, which `install/` (the cloud install) and `runtime/` (what reaches project sessions) both
-  are. They move to the Apple stack home if it ever needs them (D-20 item 10); rejected:
-  `install/apple-vm/` (blurs the cloud install), `runtime/stacks/apple/` (D-20 item 10 holds that
-  home back) (Claude's proposal, 2026-11-11; the owner confirms at the go).
-- **No daemon on the Mac:** `start` runs each VM under a small supervisor process that lives only
-  as long as that VM and stops and deletes it at its time limit; every `apple-vm.sh` command also
-  deletes task VMs past their limit (for a Mac that slept or restarted). Rejected: a launchd
-  watchdog, something of the devshop's running on the Mac all the time (proposal § 4: the Mac runs
-  "Tart and the host script, nothing else") (Claude, 2026-11-11, from the split's review).
+  are. Rejected: `install/apple-vm/` (blurs the cloud install), `runtime/stacks/apple/` (D-20 item
+  10 holds that home back) (Claude's proposal, 2026-11-11; the owner confirms at the go).
+- **The Mac is blocked too:** every task VM runs with `--net-softnet-block=@host`, so it can't reach
+  the softnet gateway at all. Softnet checks such a rule before its DNS exception, so the VM then
+  can't use the Mac's DNS either: `start` sets the guest's DNS servers to a public resolver
+  through `tart exec` once the VM answers. Rejected: leaving the gateway open until R-27 (every VM
+  until then could reach the Mac's services) (Claude's proposal; which resolver, the owner decides
+  at the go).
+- **No daemon on the Mac:** `start` runs each VM under a supervisor process, detached with `nohup`,
+  that lives only as long as that VM, and stops and deletes it at its time limit. Each VM has a state
+  file (`<tart-dir>/apple-vm/task-<n>`: its deadline, a random nonce, the supervisor's process id);
+  the supervisor deletes only a VM whose state file still holds its nonce, and `stop` ends the
+  supervisor first. Every `apple-vm.sh` command also deletes any task VM past its deadline, or not
+  running with no live supervisor (a closed Terminal, a crash, a restart), printing one line per VM
+  before it deletes it; it doesn't pause. Rejected: a launchd watchdog, something of the devshop's
+  running on the Mac all the time (proposal § 4) (Claude, 2026-11-11, from the split's review).
 - **`stop` deletes:** a task VM is throwaway, so stopping it also deletes it; work survives only
-  as what was pushed. Rejected: a separate `delete`, one more command and a VM left behind
-  (Claude, 2026-11-11).
+  as what was pushed. Rejected: a separate `delete` (Claude, 2026-11-11).
 - **The time limit:** 12 hours by default, `--hours 1` to `24` (Claude's proposal; the owner
   confirms at the go).
-- **The Tart folder is an argument:** `--tart-dir <dir>`, the folder the owner set up by hand
-  (`bin/` with the `tart` wrapper and softnet, `tart-home/`); the scripts set `PATH` and
-  `TART_HOME` from it, so they don't depend on a Terminal's exports. Rejected: a config file
-  (one more hidden state) (Claude, 2026-11-11).
-- **Pinned to Tart 2.34.0:** the scripts refuse any other `tart --version`, since their flags and
-  `tart exec` were read from 2.34.0's source; a newer pin is its own change (Claude, 2026-11-11).
-- **The attacks run from the Mac, not typed in the VM:** `apple-vm-attacks.sh` sends a probe
-  script into the VM with `tart exec` (Tart 2.34.0 has it; it needs Tart's guest agent, which
-  Cirrus' images include) and writes the report on the Mac, so the owner copies the report from
-  the Mac's own Terminal into the session (Claude, 2026-11-11, from the split's review).
-- **A known-bad run proves the attacks can fail:** `apple-vm-attacks.sh known-bad` starts a VM the
-  unsafe way (Tart's default network, the clipboard on, an empty temporary folder shared in) and
-  runs the same probes, which must then report the walls as broken; `apple-vm.sh` itself has no
-  unsafe mode (Claude, 2026-11-11).
-- **The Mac and LAN probes have a positive control:** a probe to a port nothing listens on fails
-  with or without a wall, so the attack run listens on one random port on the Mac for the few
-  seconds of the probes (serving nothing) and the VM tries to reach that port on the Mac's LAN
-  address and on softnet's gateway, and the router on its DNS port. The known-bad run shows the
-  same probes succeeding (Claude, 2026-11-11).
-- **The disk-fill attack is opt-in** (`--disk-fill`): it writes until the guest disk is full,
-  about 53 GB on the owner's `base`, and takes minutes; it runs once for this slice's evidence
-  (Claude's proposal; the owner confirms at the go).
-- **Free disk at `start`:** a task VM can grow on the Mac up to its disk's size minus what `base`
-  already holds there, so `start` refuses unless the Mac's free space covers that growth for every
-  running task VM plus the new one, plus a 20 GB floor (Claude, 2026-11-11).
-- **The CPU and memory attack records numbers:** the VM is set to 4 CPU and 8 GB, and the attack
-  shows the guest sees no more, then loads it (busy loops on every core, memory past 8 GB) while
-  the Mac samples the VM's process; the report records the peaks and the Mac's memory pressure.
-  The pass line is a peak CPU of at most 4 cores plus 10 % and a peak memory of at most 8 GB plus
-  2 GB of overhead; the first real run may show the overhead needs another value, which the owner
-  decides (Claude, 2026-11-11).
-- **`base` pinned by digest moves to R-28,** the slice that builds `base` from a recipe; this slice
-  only refuses to touch `base` and checks it is unchanged (Claude, 2026-11-11, a change to the
-  split's notes).
-- **macOS's own bash:** both scripts and the probe run under macOS's `/bin/bash` 3.2 (Claude,
+- **The Tart folder is an argument:** `--tart-dir <dir>` (`bin/` with the `tart` wrapper and
+  softnet, `tart-home/`); the scripts set `PATH` and `TART_HOME` from it. Rejected: a config file
+  (Claude, 2026-11-11).
+- **Pinned to Tart 2.34.0,** whose flags and `tart exec` were read from its source; a newer pin is
+  its own change. `start` also refuses a `bin/softnet` that isn't owned by root with its setuid bit
+  set, printing the one command the owner ran once on 2026-11-09, because Tart asks for that
+  password only in an interactive Terminal and the supervisor has none. That setuid-root softnet is
+  a change to the Mac, already made, and the only one (Claude, 2026-11-11).
+- **The attacks run from the Mac, not typed in the VM:** `apple-vm-attacks.sh` waits until the VM's
+  guest agent answers `tart exec` (Cirrus' images include it), sends a probe script in, and writes
+  the report on the Mac, so the owner copies it from the Mac's own Terminal (Claude, 2026-11-11).
+- **A known-bad run proves the attacks can fail:** `apple-vm-attacks.sh known-bad` runs `task-99`
+  the unsafe way (Tart's default network, the clipboard on, an empty temporary folder shared in) and
+  the same probes, which must then report each wall broken. `task-99` is reserved for it:
+  `apple-vm.sh start` refuses 99, while `stop`, `kill-all` and the clean-up cover it like any task
+  VM. `apple-vm.sh` itself has no unsafe mode (Claude, 2026-11-11).
+- **Positive controls:** a probe to a port nothing listens on fails with or without a wall. So the
+  attack run listens with macOS's own `/usr/bin/nc` on one random port, bound only to the Mac's LAN
+  address and to the softnet gateway, for at most 60 seconds, and first checks from the Mac itself
+  that the listener answers on both (else the line is `FAIL`). The VM then tries to reach that port
+  on both addresses, and the router on its DNS port; the known-bad run shows the same probes
+  succeeding. The clipboard probe puts a random word on the Mac's clipboard and reads the guest's
+  (Claude, 2026-11-11).
+- **The disk-fill attack is opt-in** (`--disk-fill`): it deletes at least 20 GB of files the image
+  holds, then writes until the guest disk is full, so the copy-on-write clone grows past what
+  `base` already holds; it takes minutes and runs once for this slice's evidence (Claude's
+  proposal; the owner confirms at the go).
+- **Free disk at `start`:** a copy-on-write clone can grow on the Mac up to its whole disk size, so
+  `start` refuses unless the Mac's free space covers the whole disk size of every running task VM
+  plus the new one, plus a 20 GB floor; with `base`'s 140 GB disk that is about 300 GB for one VM
+  (Claude, 2026-11-11). If the Mac has less, the owner decides at the go between a smaller disk for
+  task VMs (R-28's recipe) and a lower bar.
+- **The CPU and memory attack, with one VM up:** the guest must see 4 CPUs and 8 GB; then it loads
+  every core and allocates memory past 8 GB while the Mac samples the VM's process (Virtualization's
+  `com.apple.Virtualization.VirtualMachine` process, not `tart`). The report records the peaks and
+  the Mac's memory pressure. The pass line: the peaks show the load was seen (at least 3 cores, at
+  least 6 GB) and stayed bounded (at most 4 cores plus 10 %, at most 8 GB plus 2 GB of overhead).
+  The first real run may show the overhead needs another value, which the owner decides (Claude,
   2026-11-11).
+- **The two-VM cap counts every VM on the Mac,** from the Virtualization processes running, not only
+  Tart's list in this folder (Claude, 2026-11-11).
+- **The report proves what ran:** the attack run refuses a checkout with uncommitted changes and
+  records the commit, each script's and the probe's SHA-256, and the raw output of `tart --version`,
+  `sw_vers` and `tart list --format json`; the Linux fakes are checked against that raw output
+  after the first real run (Claude, 2026-11-11).
+- **`base` pinned by digest moves to R-28,** the slice that builds `base` from a recipe; this slice
+  only refuses to touch `base` and checks it is unchanged. This changes the split's notes, which put
+  it in R-24 (Claude's proposal; the owner confirms at the go).
+- **macOS's own bash:** both scripts and the probe run under macOS's `/bin/bash` 3.2; the proof is
+  the owner's run of the Linux test on the Mac (AC-15), since macOS's bash and BSD tools are not on
+  the Linux CI runner (Claude, 2026-11-11).
 
 ## Acceptance items
 
 - **AC-1** `mac/apple-vm.sh start <n> --tart-dir <dir> [--hours <h>]` clones `base` to `task-<n>`,
-  sets it to 4 CPU and 8192 MB, and runs it with `--net-softnet --no-clipboard` and no `--dir`,
-  under a supervisor that stops and deletes it when its time limit passes; it returns once Tart
-  lists the VM as running, and exits non-zero if that doesn't happen within 120 seconds.
+  sets it to 4 CPU and 8192 MB, and runs it with `--net-softnet-block=@host --no-clipboard` and no
+  `--dir`, under the supervisor of Decisions; once `tart exec` answers in the VM, it sets the
+  guest's DNS servers to the chosen resolver; it exits 0 only when both are done within 300
+  seconds, and otherwise stops and deletes the VM and exits non-zero.
 - **AC-2** `mac/apple-vm.sh list --tart-dir <dir>` prints one line per `task-<n>` VM: its name,
-  whether it runs, its age, the time left before its limit, and its size on the Mac; VMs not named
-  `task-<n>` are not listed.
-- **AC-3** `mac/apple-vm.sh stop <n> --tart-dir <dir>` stops `task-<n>`, waits until Tart no longer
-  lists it as running, then deletes it; `mac/apple-vm.sh kill-all --tart-dir <dir>` does the same
-  for every `task-<n>` VM, and for no other VM.
-- **AC-4** Every `apple-vm.sh` command first deletes each `task-<n>` VM past its time limit,
-  printing its name before it does.
+  whether it runs, its age, the time left before its deadline, and its size on the Mac; VMs not
+  named `task-<n>` are not listed.
+- **AC-3** `mac/apple-vm.sh stop <n> --tart-dir <dir>` ends `task-<n>`'s supervisor, stops the VM,
+  waits until Tart no longer lists it as running, then deletes it and its state file;
+  `mac/apple-vm.sh kill-all --tart-dir <dir>` does the same for every `task-<n>` VM, and for no
+  other VM.
+- **AC-4** Every `apple-vm.sh` command first deletes each `task-<n>` VM past its deadline, or not
+  running with no live supervisor, printing its name before it does; a supervisor deletes its VM at
+  the deadline only while the VM's state file holds its nonce, so a `stop` then a new `start` of
+  the same `<n>` is never deleted by the old supervisor.
 - **AC-5** No command ever passes `base`, or any VM name not of the form `task-<n>`, to `tart stop`,
-  `tart delete`, `tart set` or `tart run`; `<n>` is a whole number from 1 to 99, and anything else
-  (`0`, `100`, `-1`, `1;x`, `../base`, `base`, empty) exits 2 with a usage line and calls no `tart`
-  command.
+  `tart delete`, `tart set`, `tart run` or `tart exec`; `<n>` is a whole number from 1 to 99 (`start`
+  takes 1 to 98), and anything else (`0`, `100`, `-1`, `1;x`, `../base`, `base`, empty) exits 2
+  with a usage line and calls no `tart` command.
 - **AC-6** `start` refuses (exit 1, calling neither `tart clone` nor `tart run`) when: `task-<n>`
-  already exists; `base` doesn't exist; two macOS VMs already run (whatever their names); the Mac's
-  free space is below the rule in Decisions; or `tart --version` isn't `2.34.0`.
+  already exists; `base` doesn't exist; two VMs already run on the Mac (counted from the
+  Virtualization processes, whatever made them); the Mac's free space is below the rule in
+  Decisions; `tart --version` isn't `2.34.0`; or `bin/softnet` isn't owned by root with its setuid
+  bit, in which case it prints the command that fixes it.
 - **AC-7** Each command exits 2 with a usage line on an unknown command, a missing or extra
   argument, a missing `--tart-dir`, a `--tart-dir` without an executable `bin/tart`, or `--hours`
-  outside 1 to 24; a missing `tart` or a `tart` output the script can't parse exits non-zero, never 0.
-- **AC-8** `mac/apple-vm-attacks.sh run --tart-dir <dir> --report <file> [--disk-fill]` starts its
-  own task VMs through `apple-vm.sh`, runs each attack below, deletes the VMs it started, and
-  writes the report: a header (date, the Mac's macOS version, `tart --version`, the repo's commit)
-  and one line per attack, `PASS <id> <detail>` when the wall held and `FAIL <id> <detail>`
-  otherwise; it exits 0 only when every line is `PASS`. A probe that can't run, or whose output it
-  can't parse, is a `FAIL`.
-- **AC-9** The attacks, each a report line: `host-path` (no shared folder is mounted, nothing of
-  the Mac's is under `/Volumes`); `mac` (the VM can't connect to the run's listening port on the
-  Mac's LAN address or softnet's gateway); `lan` (the VM can't reach the router's DNS port);
-  `persist` (marker files in the home folder and `/Users/Shared`, and a LaunchAgent, written in one
-  task VM are absent in the next); `base` (`base`'s `config.json` and `nvram.bin` hash the same,
-  and its disk image has the same size and modification time, before and after); `cpu-mem` (the
-  guest sees 4 CPUs and 8 GB, and the Mac's peaks under load are within Decisions' pass line); and,
-  with `--disk-fill`, `disk` (the guest fills its disk and the Mac's free space stays above the
-  20 GB floor).
-- **AC-10** `mac/apple-vm-attacks.sh known-bad --tart-dir <dir> --report <file>` starts one VM with
-  Tart's default network, the clipboard on and an empty temporary folder shared in, runs the
-  `host-path`, `mac`, `lan` and `persist` probes (the last on that same VM, without deleting it),
-  deletes the VM, and exits 0 only when every one of those lines is `FAIL`.
-- **AC-11** `tests/apple-vm.test.sh` runs both scripts on Linux against a fake `tart` (and fake
-  `df`, `du`, `date`, `ipconfig` and `route`) placed in a temporary `--tart-dir`, and covers each
-  item AC-1 to AC-10 with a known-bad input, among them: every bad `<n>` of AC-5, each refusal of
-  AC-6, a VM past its limit, a `base` the fake changes, a probe output with a missing line, a
-  probe that reports a wall broken, and a fake `tart` that prints nothing.
+  outside 1 to 24; a missing tool, or an output the script can't parse, exits non-zero, never 0.
+- **AC-8** `mac/apple-vm-attacks.sh run --tart-dir <dir> --report <file> [--disk-fill]` refuses a
+  checkout with uncommitted changes; starts its own task VMs through `apple-vm.sh`, one at a time;
+  waits up to 300 seconds for `tart exec` to answer; runs each attack below; and writes the report:
+  the header of Decisions, then one line per attack, `PASS <id> <detail>` when the wall held and
+  `FAIL <id> <detail>` otherwise. It exits 0 only when every line is `PASS`. A probe that can't
+  run, or whose output it can't parse, is a `FAIL`. On any exit, an interrupt included, it deletes
+  the VMs it started and ends its listener.
+- **AC-9** The attacks, each a report line:
+  - `host-path`: no `virtiofs`, `smbfs`, `nfs` or `afpfs` volume is mounted, and nothing but the
+    guest's own disk is under `/Volumes`.
+  - `mac`: the Mac first reaches its own listener on both addresses, then the VM can reach it on
+    neither.
+  - `lan`: the VM can't reach the router's DNS port.
+  - `clipboard`: the word put on the Mac's clipboard is not on the guest's.
+  - `persist`: markers written in one task VM (in `/Users/admin`, in `/Users/Shared`, and a
+    LaunchDaemon in `/Library/LaunchDaemons`) are absent in the next.
+  - `base`: `base`'s `config.json` and `nvram.bin` hash the same, and its disk image has the same
+    size and modification time, before and after the run.
+  - `cpu-mem`: the guest sees 4 CPUs and 8 GB, and the peaks the Mac samples are within the pass
+    line of Decisions.
+  - `disk`, with `--disk-fill`: the guest frees at least 20 GB, fills its disk, and the Mac's free
+    space stays above the 20 GB floor throughout.
+- **AC-10** `mac/apple-vm-attacks.sh known-bad --tart-dir <dir> --report <file>` starts `task-99`
+  with Tart's default network, the clipboard on and an empty temporary folder shared in, runs the
+  `host-path`, `mac`, `lan`, `clipboard` and `persist` probes (`persist` on that same VM, without
+  deleting it in between), deletes the VM, and exits 0 only when every one of those lines is
+  `FAIL`.
+- **AC-11** `tests/apple-vm.test.sh` runs both scripts against a fake `tart` (and fake `ps`, `df`,
+  `stat`, `date`, `ipconfig`, `route`, `nc`, `pbcopy` and `git` as needed) in a temporary
+  `--tart-dir`, and covers each item AC-1 to AC-10 with a known-bad input, among them: every bad
+  `<n>` of AC-5, each refusal of AC-6, a VM past its deadline, a stopped VM with no supervisor, a
+  stale supervisor after a restart of the same `<n>`, a `tart exec` that never answers, a `base`
+  the fake changes, a listener that never answers, a probe output with a missing line, a probe
+  that reports a wall broken, a cpu-mem sample below the lower bound, a dirty checkout, an
+  interrupted run (nothing left behind), and a fake `tart` that prints nothing.
 - **AC-12** A mutant run, `tests/apple-vm-mutants.test.sh`, removes or inverts each guard of AC-5
-  and AC-6 and each pass condition of AC-8 and AC-9 in a temporary copy, and the test of AC-11 fails
-  on every mutant.
+  and AC-6, each pass condition of AC-8 to AC-10, and the nonce check of AC-4 in a temporary copy,
+  and the test of AC-11 fails on every mutant.
 - **AC-13** Neither script nor the probe uses a feature macOS's bash 3.2 lacks (`declare -A`,
   `mapfile`, `readarray`, `${x,,}`, `${x^^}`, `declare -n`, `local -n`, `[[ -v`, `|&`, `&>>`,
-  `coproc`), checked by a test; both pass `shellcheck`.
+  `coproc`, `wait -n`, `${x@`, `;&`, `$EPOCHSECONDS`, a negative array index, `setsid`), checked by a
+  test; the scripts, the probe and the test pass `shellcheck`.
 - **AC-14** `mac/README.md` gives the owner's steps on the local Mac as commands to copy from the
-  Mac's own Terminal: get this repo at the PR's commit, the start, list and stop commands, the attack
-  run, the known-bad run, and what to paste back; `docs/README.md` links it.
-- **AC-15** On the local Mac, `apple-vm-attacks.sh run --disk-fill` reports `PASS` on every line and
-  `apple-vm-attacks.sh known-bad` reports `FAIL` on every line; both reports are in the PR's
-  Evidence — verified by review: the owner's two reports, pasted from the Mac, at the PR's head
-  commit.
+  Mac's own Terminal: get this repo at the PR's commit, run `tests/apple-vm.test.sh`, the start,
+  list and stop commands, the attack run, the known-bad run, and what to paste back; it says what
+  softnet allows and what this slice adds; `docs/README.md` links it.
+- **AC-15** On the local Mac, at the PR's head commit: `tests/apple-vm.test.sh` passes;
+  `apple-vm-attacks.sh run --disk-fill` reports `PASS` on every line; and
+  `apple-vm-attacks.sh known-bad` reports `FAIL` on every line. The three outputs are in the PR's
+  Evidence — verified by review: the owner's outputs, pasted from the Mac.
+- **AC-16** The proposal's § 4 and § 5 and the test's record (`spikes/m4-apple-vm/README.md`,
+  `air-test.md`) say that softnet alone leaves the Mac reachable through its gateway and that task
+  VMs block it with `@host`.
 
 ## Out of scope
 
-- The egress allowlist proxy and softnet's block-all rule, and the attack on a host off the list
-  (R-27). In this slice the VM reaches the internet through softnet's defaults.
-- The base image recipe, `base` pinned by digest, the standard `agent` user, the login, the
-  managed settings and their attacks (R-28).
+- The egress allowlist proxy, softnet's block-all rule and the attack on a host off the list
+  (R-27). Until then the VM reaches the internet through softnet's defaults.
+- The base image recipe, `base` pinned by digest, a smaller disk for task VMs, the standard `agent`
+  user, the login, the managed settings and their attacks (R-28).
 - Remote Control, a session in the VM, `ship.sh` and the reviewer from a VM (R-29).
 - Apple's Xcode plugin (D-20 item 11), the Apple stack home (D-20 item 10), and any change to the
-  local Mac outside Tart and these two scripts.
+  local Mac outside Tart, softnet's setuid bit (already set) and these two scripts.
