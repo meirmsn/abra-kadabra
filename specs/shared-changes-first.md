@@ -89,9 +89,11 @@ approves them as written.
   on a test the change doesn't touch. Rejected: the full rules in each skill (they drift); a load
   in `ak:build` § 2 (the need shows up only while building)
 - **The project CLAUDE.md template gets one line** under "How changes land", because every
-  session loads it, including one that adds no item. It names
-  `/opt/devshop-current/guidelines/parallel.md` and `/opt/devshop-current/guidelines/flaky-tests.md`.
-  The template is a `seed`, so an existing project gets the line as a template diff at its next
+  session loads it, including one that adds no item. It names the two guidelines in prose ("the
+  devshop's parallel-work guideline", "the devshop's flaky-tests guideline"), as it already names
+  "the devshop's design guideline". Changed after the go: a file placed in a project may not name
+  `/opt/devshop` (`tests/new-project.test.sh`, AC-5 of `specs/new-project.md`), and the paths first
+  planned here broke that. Owner, 2026-11-11, choosing "Yes, name them in prose". The template is a `seed`, so an existing project gets the line as a template diff at its next
   upgrade
 - **The devshop's own `CLAUDE.md` gets one line** under "How changes land" with the same rule,
   linking the two guidelines: the devshop has shared scripts and tests of its own, and its sessions
@@ -146,8 +148,8 @@ approves them as written.
   on both skills — verified by review: the diff and the skills check's output in the PR's evidence
 - **AC-6** `runtime/templates/project-claude.md` has one line under "How changes land": a shared
   change or a fix to a shared or flaky test goes first in its own small PR, and an unrelated
-  failure is never re-run but reproduced and fixed at its cause, naming the two guidelines'
-  `/opt/devshop-current/guidelines/` paths — verified by review: the diff
+  failure is never re-run but reproduced and fixed at its cause, naming the two guidelines in
+  prose, with no `/opt/devshop` path (changed after the go: owner, 2026-11-11) — verified by review: the diff
 - **AC-7** The devshop's `CLAUDE.md` has one line under "How changes land" with the same rule,
   linking the two guidelines, and naming the shared PR's merge as a reason a waiting branch merges
   `main` — verified by review: the diff

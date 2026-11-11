@@ -7,10 +7,10 @@ What this project is, in a few lines, and where its docs start: written with its
 - One task, one branch, cut from a freshly fetched `main`. Changes reach `main` only by PR, with
   CI's `fast` and `slow` green and the owner's approval.
 - Run `scripts/check-fast.sh origin/main` before pushing.
-- A change to shared code, or a fix to a shared or flaky test, goes first in its own small PR
-  (`/opt/devshop-current/guidelines/parallel.md`). A test that fails on a change that doesn't
-  touch it is never re-run: reproduce it, fix its cause, and that fix goes first
-  (`/opt/devshop-current/guidelines/flaky-tests.md`).
+- A change to shared code, or a fix to a shared or flaky test, goes first in its own small PR (the
+  devshop's parallel-work guideline). A test that fails on a change that doesn't touch it is never
+  re-run: reproduce it, fix its cause, and that fix goes first (the devshop's flaky-tests
+  guideline).
 - What the owner decided will happen is in `ROADMAP.md`; what Claude noticed and didn't fix is in
   `FINDINGS.md`. Each is created on its first entry.
 
