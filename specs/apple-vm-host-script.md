@@ -90,8 +90,8 @@ any service on the Mac listening on all its addresses was reachable from the VM.
   copy-on-write clone can grow up to its whole 140 GB, and a guest that hits a full host disk gets
   I/O errors, so:
   - `start` refuses with less than 60 GB free (`df -k`, which leaves out purgeable space).
-  - Every 10 seconds the supervisor reads the Mac's free space and the VM's disk image's allocated
-    size. When the VM has grown past 60 GB or the Mac has under 30 GB free, it stops the VM and
+  - Every 10 seconds the supervisor reads the Mac's free space. When it has fallen more than 60 GB
+    since the VM started (the VM's growth) or the Mac has under 30 GB free, it stops the VM and
     keeps it (shown in `list` as stopped for disk) until its deadline or a `stop`; under 15 GB free
     it deletes it. Each trip is a printed and logged line.
   - This is feedback, not a wall: it works while the supervisor runs, and `list` flags a VM without
@@ -100,6 +100,12 @@ any service on the Mac listening on all its addresses was reachable from the VM.
     files grow, and bounds nothing once running), an event instead of the check (macOS has no
     public early low-space event). Later, R-28's recipe can give task VMs a smaller disk, which
     shrinks the worst case itself.
+  - **Changed after the go:** growth is the fall in the Mac's free space since the VM started, not
+    the VM's disk image's allocated size. A clone shares `base`'s blocks, so its allocated size
+    misses blocks it rewrites and can show at most about 53 GB of growth on this `base`; the fall in
+    free space sees all of it, and errs early when the owner's own files grow. Rejected: the
+    allocated size (the spec's first wording). The owner, asked after the reviewer found the
+    difference: "A" (2026-11-12).
 - **The CPU and memory attack, with one VM up:** the guest must see 4 CPUs and 8 GB; then it loads
   every core and allocates memory past 8 GB while the Mac samples the VM's process (Virtualization's
   `com.apple.Virtualization.VirtualMachine` process, not `tart`). The report records the peaks and
@@ -141,7 +147,7 @@ any service on the Mac listening on all its addresses was reachable from the VM.
   kept until its deadline while its supervisor lives, and listed as such; with no live supervisor
   it is deleted like any other.
 - **AC-5** The supervisor applies the disk rule of Decisions every 10 seconds: it stops the VM
-  past 60 GB of growth or under 30 GB free on the Mac, deletes it under 15 GB free, and prints and
+  once the Mac's free space has fallen more than 60 GB since its start or is under 30 GB, deletes it under 15 GB free, and prints and
   logs each trip.
 - **AC-6** No command ever passes `base`, or any VM name not of the form `task-<n>`, to `tart stop`,
   `tart delete`, `tart set`, `tart run` or `tart exec`; `<n>` is a whole number from 1 to 99 (`start`
