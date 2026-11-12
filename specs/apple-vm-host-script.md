@@ -147,8 +147,8 @@ any service on the Mac listening on all its addresses was reachable from the VM.
   kept until its deadline while its supervisor lives, and listed as such; with no live supervisor
   it is deleted like any other.
 - **AC-5** The supervisor applies the disk rule of Decisions every 10 seconds: it stops the VM
-  once the Mac's free space has fallen more than 60 GB since its start or is under 30 GB, deletes it under 15 GB free, and prints and
-  logs each trip.
+  once the Mac's free space has fallen more than 60 GB since its start or is under 30 GB, deletes
+  it under 15 GB free, and prints and logs each trip.
 - **AC-6** No command ever passes `base`, or any VM name not of the form `task-<n>`, to `tart stop`,
   `tart delete`, `tart set`, `tart run` or `tart exec`; `<n>` is a whole number from 1 to 99 (`start`
   takes 1 to 98), and anything else (`0`, `100`, `-1`, `1;x`, `../base`, `base`, empty) exits 2
