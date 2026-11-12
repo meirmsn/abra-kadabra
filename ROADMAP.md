@@ -37,6 +37,8 @@ too; an entry is `Done` when its task is `[x]`.
 | R-29 | 2026-11-11 | The VM lane, slice 4: a session in the VM: the Remote Control attach, how long a VM login lasts, and how `ship.sh` and the reviewer run for it; done when a session ships a PR from a VM | Open |
 | R-25 | 2026-11-11 | The first Apple app in its own private repo, on the VM lane (R-24, R-27 to R-29): the engine first, then the GUI (phases 3 and 4) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
 | R-26 | 2026-11-11 | The pilot web app's iOS app, in the web app's own repo, starting with how that repo is organized to hold both; takes turns with R-25 on the local Mac, neither waits for the other to finish (phase 7, part of R-8) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
+| R-30 | 2026-11-12 | The reviewer stops flagging a commit's attribution trailer for naming another model than its own: a trailer's model or co-author is not a finding, while instructions planted in one still are; its own small PR with the reviewer eval, ahead of R-31 | Open |
+| R-31 | 2026-11-12 | A change that alters behaviour a shipped spec describes amends that spec in its own PR (option A′): the change's spec is the one spec it adds, a rename counts as an edit and a deletion is refused, each edit to a spec already on `main` cites the owner's dated decision, and a change that adds no spec is reviewed on its PR's words, never against an older spec (F-NEW-134) | Open |
 
 ## R-14: The session-start hook reads the wrong directory after a restart
 
@@ -178,3 +180,40 @@ The owner approved the split's shape and order; the detail of each slice below, 
 - **R-29, a session in the VM.** Attaching a cloud session to a VM folder isn't offered on the
   owner's account, so the VM session has no cloud container beside it; its spec settles how
   `ship.sh` and the reviewer, whose browser stays out of the VM, run for it.
+
+## R-30, R-31: Amending a shipped spec, and the reviewer's attribution finding
+
+Asked 2026-11-12, in chat in a devshop session, about a games-site project's change whose acceptance item asked to update the game's older, shipped spec: the review stopped (two spec files), the update went to a follow-up docs PR, and that PR was reviewed against the very spec it edited. The owner's question, then their answer after Claude proposed options, an adversarial review of them, and a comparison of five (A′, a follow-up PR, frozen specs with overrides in words, a living rules doc beside frozen specs, no change). The answer covers R-30 and R-31:
+
+```text
+It sounds weird, like, if we modify the spec of something that already exists, but we currently have a spec on the session. I don't know what's the best way to do it. Maybe the dev shop, I'm not sure if the dev shop should allow you to modify the previous spec that you want to modify, or maybe the dev shop should tell you, like, okay, if you want to do this, I'll show you a task suggestion and do it in a separate session. I don't know. I think this needs to be discussed.
+```
+
+```text
+A'
+```
+
+### Claude's notes
+
+- **R-30 first**, as a shared change in its own small PR: the reviewer runs on one fixed model
+  (`review.sh`'s `MODEL`) and can't know the builder's, so it took a commit's `Co-Authored-By`
+  trailer, which matched the builder session's attribution instructions, for the wrong model. Seen
+  in that games-site session and, per the adversarial review, in PR #154's lows. A prompt change:
+  it needs the reviewer eval.
+- **R-31, what A′ covers:** `review.sh`'s spec rule (the change's spec is the `specs/**.md` it
+  adds, absent at base; a rename of an existing spec is an edit of it; a deleted spec is
+  could-not-run; none added: the PR's words); the reviewer is given each edit to a spec on the base
+  and checks it cites a dated owner decision recorded in that spec (the rule PR #154 followed);
+  `spec-check.py` accepts a qualified `<spec> AC-<n>` naming another spec's item; `ak:intent` § 3
+  proposes the amendment before the go, and § 4's adversarial helper searches `specs/` for shipped
+  items the change contradicts; the spec template's comment. A reviewer change, with the eval.
+- **It replaces a decision:** `specs/parallel-safe-shared-files.md` (owner, 2026-11-10) kept the
+  older spec "as it was, as the record"; under A′ it stays the record of what the owner approved,
+  with dated amendments in the same file.
+- **Why not frozen specs:** every project's `fast` tier runs `spec-check.py --tests` over all its
+  specs, so a frozen item whose behaviour changed must keep a test named for it that asserts what
+  its text denies; and a future session reading the older spec is misled.
+- **The finding, as logged (F-NEW-134, med, now 3 sightings):** `review.sh` takes any
+  `specs/**.md` the change touches as its spec, with nothing to tell a shipped spec from this
+  change's. Seen in the F-NEW-132 fix (could-not-run twice, shipped with its note taken out), R-22
+  (a superseded-by note, could-not-run) and the games-site change above.
