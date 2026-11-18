@@ -4,7 +4,7 @@
 
 <img src="docs/images/social-preview.png" alt="abra-kadabra" width="720">
 
-# abra-kadabra
+# Abra-Kadabra
 
 **A running prototype of a dev shop run by Claude Code agents.**
 
@@ -22,11 +22,6 @@
 - [Approach](#approach)
 - [What it does](#what-it-does)
 - [How it works](#how-it-works)
-  - [🔍 Adversarial review](#-adversarial-review)
-  - [🧭 Product, design, and engineering, separated](#-product-design-and-engineering-separated)
-  - [📚 Tests and docs written for the next agent](#-tests-and-docs-written-for-the-next-agent)
-  - [🚀 Operations: roadmap, bugs, triage, deployment](#-operations-roadmap-bugs-triage-deployment)
-  - [📌 Versioning and migration](#-versioning-and-migration)
 - [Learnings so far](#learnings-so-far)
 - [Build log](#build-log)
 - [Known limitations](#known-limitations)
@@ -73,7 +68,7 @@ refinement of the devshop comes out of running it: the automated loop builds, I 
 short, and the correction goes into the next version, the way a rough tool is used to make a finer
 one.
 
-<a href="#readme-top">back to top</a>
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## What it does
 
@@ -123,7 +118,7 @@ can do.
 without you, hold a production secret), so that trusting a change means **reading its PR, not
 auditing the agent**.
 
-<a href="#readme-top">back to top</a>
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## How it works
 
@@ -306,7 +301,7 @@ A new devshop version is released from a button only I press; CI names it from t
 and tags it. Versions are SemVer; a breaking change is a major version, whose upgrade PR is meant to
 carry the migration, done by the agent.
 
-<a href="#readme-top">back to top</a>
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## Learnings so far
 
@@ -331,12 +326,12 @@ carry the migration, done by the agent.
   by hand, and so runs a little faster, like a flywheel. At some point the machine runs by itself,
   and it feels like magic.
 
-<a href="#readme-top">back to top</a>
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## Build log
 
 <details>
-<summary>Entries</summary>
+<summary>Show all 12 entries</summary>
 
 - **2026-04-10** · Seeded from lalista's own tooling (v0.2.0); v1.0.0 two days later.
 - **2026-04 to 2026-06** · v1: a devcontainer with a firewall, hooks and a 19-gate pipeline, used
@@ -360,7 +355,7 @@ carry the migration, done by the agent.
 
 </details>
 
-<a href="#readme-top">back to top</a>
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## Known limitations
 
@@ -384,7 +379,7 @@ carry the migration, done by the agent.
   compatibility promise. If any of this is a problem you face, the Feedback section below is where
   to say so.
 
-<a href="#readme-top">back to top</a>
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## Run it
 
@@ -398,16 +393,16 @@ carry the migration, done by the agent.
 - **To test it:** `npm ci`, then `tests/run.sh` (it needs gitleaks, shellcheck and dcg at the
   versions pinned in `.github/workflows/ci.yml`).
 
-<a href="#readme-top">back to top</a>
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## Feedback
 
 Suggestions and critiques welcome — open an issue or a discussion.
 
-<a href="#readme-top">back to top</a>
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## License
 
 MIT
 
-<a href="#readme-top">back to top</a>
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
