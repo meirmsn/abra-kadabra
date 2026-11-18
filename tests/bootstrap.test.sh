@@ -238,13 +238,23 @@ EOF
 chmod +x "$work/bin/claude"
 cat >"$work/bin/curl" <<EOF
 #!/usr/bin/env bash
-# fake curl: -o <out> <url> → copy $work/dl/<basename of url>
+# fake curl: -o <out> <url> → copy $work/dl/<basename of url>; each call's URL goes to curl.calls.
 out= url=
-while [ \$# -gt 0 ]; do case "\$1" in -o) out=\$2; shift 2 ;; -*) shift ;; *) url=\$1; shift ;; esac; done
+while [ \$# -gt 0 ]; do case "\$1" in -o) out=\$2; shift 2 ;; --connect-timeout|--max-time) shift 2 ;; -*) shift ;; *) url=\$1; shift ;; esac; done
+echo "\$url" >>"$work/curl.calls"
+# A <basename>.504 file holding n: the next n fetches of that URL answer 504 (F-NEW-158).
+flaky="$work/dl/\${url##*/}.504"
+if [ -s "\$flaky" ] && [ "\$(cat "\$flaky")" -gt 0 ]; then
+  echo \$(( \$(cat "\$flaky") - 1 )) >"\$flaky"; echo "fake curl: 504 \$url" >&2; exit 22
+fi
 [ -f "$work/dl/\${url##*/}" ] || { echo "fake curl: 404 \$url" >&2; exit 22; }
 cp "$work/dl/\${url##*/}" "\$out"
 EOF
 chmod +x "$work/bin/curl"
+# The session-start repair runs with PATH=/usr/bin:/bin (specs/pinned-tools-survive-outage.md), so
+# the fake is bound over /usr/bin/curl too: no test reaches the network.
+[ -e /usr/bin/curl ] || fail "no /usr/bin/curl to bind the fake over"
+mount --bind "$work/bin/curl" /usr/bin/curl || fail "can't bind the fake curl over /usr/bin/curl"
 # A fake `bun`: records its calls in the gstack checkout's parent; fails if the checkout has BUN_FAIL.
 cat >"$work/bin/bun" <<'EOF'
 #!/usr/bin/env bash
@@ -254,6 +264,8 @@ echo "bun $* (in $PWD)" >>"$HOME/bun.calls"
 EOF
 chmod +x "$work/bin/bun"
 export PATH="$work/bin:$PATH"
+# Failed downloads are retried with backoff (F-NEW-158); no waiting in the tests.
+export DEVSHOP_TOOL_RETRY_DELAY=0
 
 # setup_env [main branch] [expected result: done|FAILED]: a fresh VM's environment setup, the
 # two-line setup script with line 2 verbatim.
@@ -584,8 +596,34 @@ DEVSHOP_TEST_CHROMIUM=1 DEVSHOP_TEST_SETTINGS=' ' setup_env
 DEVSHOP_TEST_CHROMIUM=1 DEVSHOP_TEST_SETTINGS='{"env":"x"}' setup_env main FAILED
 grep -q "FAILED: gstack browser: $HOME/.claude/settings.json has an env that isn't an object" /tmp/devshop-setup.log \
   || { cat /tmp/devshop-setup.log >&2; fail "an env that isn't an object wasn't logged as such"; }
-[ "$(cat "$HOME/.claude/settings.json")" = '{"env":"x"}' ] || fail "a settings.json with a bad env was changed"
+[ "$(jq -c .env "$HOME/.claude/settings.json")" = '"x"' ] || fail "a settings.json with a bad env had its env changed"
 echo "ok - gstack's browser uses the image's Chromium when there is one (settings kept; an empty one filled; a bad one, or a bad env, left and logged); cross-project learnings off"
+
+# pinned-tools-survive-outage AC-9: the repair command's allow rule, with or without Chromium, once,
+# keeping what the settings hold; a file that isn't a JSON object, or a permissions of the wrong
+# type, is left as it is and logged.
+RULE='Bash(/opt/devshop-plugin/devshop/hooks/repair-tools.sh)'
+setup_env
+[ "$(jq -c .permissions.allow "$HOME/.claude/settings.json" 2>/dev/null)" = "[\"$RULE\"]" ] \
+  || fail "pinned-tools-survive-outage AC-9: no Chromium, no settings: the allow rule wasn't written alone"
+git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
+[ "$(jq -c .permissions.allow "$HOME/.claude/settings.json")" = "[\"$RULE\"]" ] \
+  || fail "pinned-tools-survive-outage AC-9: a second bootstrap duplicated the allow rule"
+DEVSHOP_TEST_CHROMIUM=1 DEVSHOP_TEST_SETTINGS='{"permissions":{"allow":["Bash(ls)"],"deny":["Bash(rm)"]},"env":{"KEEP":"1"}}' setup_env
+got=$(jq -c '{p: .permissions, e: .env}' "$HOME/.claude/settings.json")
+[ "$got" = "{\"p\":{\"allow\":[\"Bash(ls)\",\"$RULE\"],\"deny\":[\"Bash(rm)\"]},\"e\":{\"KEEP\":\"1\",\"GSTACK_CHROMIUM_PATH\":\"/opt/pw-browsers/chromium\"}}" ] \
+  || fail "pinned-tools-survive-outage AC-9: the allow rule didn't keep the settings' own rules and env: $got"
+DEVSHOP_TEST_SETTINGS='{not json' setup_env main FAILED
+grep -q "FAILED: repair allow rule: $HOME/.claude/settings.json isn't a JSON object" /tmp/devshop-setup.log \
+  || { cat /tmp/devshop-setup.log >&2; fail "pinned-tools-survive-outage AC-9: a settings.json that isn't JSON wasn't logged"; }
+[ "$(cat "$HOME/.claude/settings.json")" = '{not json' ] || fail "pinned-tools-survive-outage AC-9: a settings.json that isn't JSON was changed"
+for bad in '{"permissions":"x"}' '{"permissions":{"allow":"x"}}'; do
+  DEVSHOP_TEST_SETTINGS=$bad setup_env main FAILED
+  grep -q "FAILED: repair allow rule: .* of the wrong type" /tmp/devshop-setup.log \
+    || { cat /tmp/devshop-setup.log >&2; fail "pinned-tools-survive-outage AC-9: $bad wasn't logged"; }
+  [ "$(cat "$HOME/.claude/settings.json")" = "$bad" ] || fail "pinned-tools-survive-outage AC-9: $bad was changed"
+done
+echo "ok - pinned-tools-survive-outage AC-9: the repair command's allow rule is added once, with or without Chromium, keeping the settings; a bad file is left and logged"
 
 # Bun is tied to the gstack pin from below (specs/design-detector-in-bootstrap.md AC-10): a Bun older
 # than the one the pinned gstack is tested on fails the gstack step loudly, before anything is
@@ -698,6 +736,25 @@ for tool in gitleaks shellcheck dcg; do
 done
 echo "ok - AC-5: a second bootstrap keeps the tools on PATH and logs no failure"
 
+# F-NEW-158: a release download that answers 504 is retried with backoff, so a brief GitHub outage
+# doesn't leave a tool missing; one that keeps failing is still a FAILED step.
+echo 2 >"$work/dl/${gl_url##*/}.504"
+DEVSHOP_TOOL_RETRY_DELAY=0 setup_env main
+[ "$(on_path gitleaks --version 2>&1)" = "fake gitleaks --version" ] \
+  || { cat /tmp/devshop-setup.log >&2; fail "F-NEW-158: gitleaks missing after two 504s"; }
+[ "$(grep -c "retrying tool gitleaks" /tmp/devshop-setup.log)" = 2 ] \
+  || { cat /tmp/devshop-setup.log >&2; fail "F-NEW-158: the two retries weren't logged"; }
+echo "ok - F-NEW-158: a tool download that answers 504 twice is retried and installed"
+echo 9 >"$work/dl/${gl_url##*/}.504"
+DEVSHOP_TOOL_RETRY_DELAY=0 setup_env main FAILED
+grep -q "FAILED: tool gitleaks: download .* (4 tries)" /tmp/devshop-setup.log \
+  || { cat /tmp/devshop-setup.log >&2; fail "F-NEW-158: a download failing every try wasn't a FAILED step"; }
+[ "$(grep -c "retrying tool gitleaks" /tmp/devshop-setup.log)" = 3 ] \
+  || { cat /tmp/devshop-setup.log >&2; fail "F-NEW-158: a lasting failure wasn't tried 4 times"; }
+[ "$(cat "$work/dl/${gl_url##*/}.504")" = 5 ] || fail "F-NEW-158: the download wasn't fetched exactly 4 times"
+rm -f "$work/dl/${gl_url##*/}.504"
+echo "ok - F-NEW-158: a download that fails all 4 tries is a FAILED step"
+
 # AC-3: a rebuild that moves gitleaks to a version whose download fails leaves no gitleaks on PATH,
 # not the old one.
 git --git-dir=/opt/devshop.git update-ref refs/heads/main refs/heads/tools-bump-bad
@@ -745,6 +802,77 @@ out=$(session '' tools-badver FAILED)
 grep -q "FAILED: tool gitleaks: install/tools.pin line" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "a tool version with ../ wasn't refused"; }
 { [ ! -e /escape ] && [ ! -e /opt/escape ]; } || fail "a tool version escaped /opt/devshop-tools"
 echo "ok - a tool version that would leave /opt/devshop-tools is refused"
+
+# specs/pinned-tools-survive-outage.md: the environment cache is built once; a tool whose download
+# failed then is repaired at each session start, and the main line says what was repaired, what is
+# still missing and what that costs, before the bootstrap's clause.
+scmd() { jq -er '.hooks.SessionStart[0].hooks[0].command' "$HOME/plugin/hooks/hooks.json"; }
+hook_lines() { # hook_lines: the installed SessionStart hook's lines, in a fresh project
+  local p
+  p=$(mktemp -d "$work/proj.XXXX")
+  hook_json "$(cd "$p" && CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$p" bash -c "$(scmd)")"
+}
+calls() { if [ -f "$work/curl.calls" ]; then grep -c "$1" "$work/curl.calls" || true; else echo 0; fi; }
+REPAIR=/opt/devshop-plugin/devshop/hooks/repair-tools.sh
+STILL=": run $REPAIR, or start a new session once the release host answers"
+GL_COST="this session can't push"
+DCG_COST="every Bash command is blocked, so this session can't push or open a PR: don't push through the GitHub API"
+rm -f "$work/curl.calls"
+setup_env
+for u in "$gl_url" "$sc_url" "$dcg_url"; do
+  [ "$(calls "${u##*/}")" = 1 ] || fail "pinned-tools-survive-outage AC-3: a cache build fetched ${u##*/} $(calls "${u##*/}") times, want 1 (the priming must not repair)"
+done
+rm -f "$work/curl.calls"
+out=$(hook_lines)
+{ [ "$(calls .)" = 0 ] && ! grep -Eq "repaired at session start|still missing|couldn't read the pinned tools" <<<"$out"; } \
+  || { echo "$out" >&2; fail "pinned-tools-survive-outage AC-3: with every tool present, the session start downloaded or said something"; }
+rm -f /opt/devshop-tools/bin/*
+DEVSHOP_PRIME_ONLY=1 CLAUDE_PROJECT_DIR=/nonexistent bash "$mkt/devshop/hooks/dispatch.sh" >/dev/null 2>&1 || true
+{ [ "$(calls .)" = 0 ] && [ ! -e /opt/devshop-tools/bin/gitleaks ]; } || fail "pinned-tools-survive-outage AC-3: the priming run repaired the tools"
+echo "ok - pinned-tools-survive-outage AC-3: a cache build fetches each tool once; with every tool present the session start fetches nothing and adds nothing; priming never repairs"
+
+setup_env
+rm /opt/devshop-tools/bin/gitleaks /opt/devshop-tools/bin/dcg
+out=$(hook_lines)
+grep -Eq "^DEVSHOP: using HEAD .* · project [^;]*; repaired at session start: gitleaks, dcg$" <<<"$out" \
+  || { echo "$out" >&2; fail "pinned-tools-survive-outage AC-1: the main line doesn't end '; repaired at session start: gitleaks, dcg'"; }
+for tool in gitleaks dcg; do
+  [ "$(on_path "$tool" --version 2>&1)" = "fake $tool --version" ] || fail "pinned-tools-survive-outage AC-1: $tool wasn't repaired onto PATH"
+done
+! grep -q "dcg is not installed" <<<"$out" || { echo "$out" >&2; fail "pinned-tools-survive-outage AC-7: a dcg repaired at session start still got the 'not installed' line"; }
+echo "ok - pinned-tools-survive-outage AC-1, AC-7: missing tools are repaired at session start and said; a repaired dcg gets no 'not installed' line"
+
+setup_env
+rm /opt/devshop-tools/bin/gitleaks /opt/devshop-tools/bin/dcg
+echo 9 >"$work/dl/${gl_url##*/}.504" && echo 9 >"$work/dl/${dcg_url##*/}.504"
+out=$(hook_lines)
+rm -f "$work/dl/${gl_url##*/}.504" "$work/dl/${dcg_url##*/}.504"
+want="; still missing: gitleaks ($GL_COST), dcg ($DCG_COST)$STILL"
+main_line=$(grep '^DEVSHOP: using HEAD ' <<<"$out" || true)
+[[ $main_line == *"$want" ]] \
+  || { echo "$out" >&2; fail "pinned-tools-survive-outage AC-2: the main line doesn't end '$want'"; }
+[ "$(grep -c "still missing" <<<"$out")" = 1 ] || fail "pinned-tools-survive-outage AC-2: the still-missing clause isn't said once"
+echo "ok - pinned-tools-survive-outage AC-2: tools still missing after the repair are each named once, in pin order, with what they cost"
+
+out=$(session '' tools-bad FAILED)
+want="; still missing: gitleaks ($GL_COST)$STILL; bootstrap FAILED (tool gitleaks): see /tmp/devshop-setup.log"
+main_line=$(grep '^DEVSHOP: using HEAD ' <<<"$out" || true)
+[[ $main_line == *"$want" ]] \
+  || { echo "$out" >&2; fail "pinned-tools-survive-outage AC-2: a bad checksum at build and repair doesn't end the main line with '$want'"; }
+[ ! -e /opt/devshop-tools/bin/gitleaks ] || fail "pinned-tools-survive-outage AC-2: the repair installed a gitleaks with a bad checksum"
+echo "ok - pinned-tools-survive-outage AC-2: a checksum that fails at build and repair stays missing, said before the bootstrap's clause"
+
+setup_env
+rm /opt/devshop-tools/bin/gitleaks
+for bad in no-such-ref ''; do
+  printf '%s' "$bad" >"$versions/default-ref"
+  rm -f "$work/curl.calls"
+  out=$(hook_lines)
+  grep -q "^DEVSHOP: .*; couldn't read the pinned tools (" <<<"$out" && [ "$(calls .)" = 0 ] \
+    || { echo "$out" >&2; fail "pinned-tools-survive-outage AC-8: a default ref '$bad' wasn't said, or something was downloaded"; }
+done
+echo HEAD >"$versions/default-ref"
+echo "ok - pinned-tools-survive-outage AC-8: an unreadable default ref or pin is said, and nothing is downloaded"
 
 # The engine step's refusals (specs/design-detector-in-bootstrap.md AC-1, AC-2): each places nothing,
 # removes nothing (a stale engine stays), is logged as a FAILED step with the bootstrap FAILED, and

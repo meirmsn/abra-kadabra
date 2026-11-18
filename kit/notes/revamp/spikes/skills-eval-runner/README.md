@@ -34,7 +34,7 @@ the repo: they carry session ids and paths.
 | Turn 2: "go. Add the CI test step in this change."                                   | `**Go:**` line, `spec-check.py --go` run, `devshop:build`, `stack-homes.sh`, code and tests named `shout-flag AC-<n>`, commit; stopped before `devshop:pr` (no remote) | $1.22 | 89 s  | 6             |
 
 One run each, so nothing here is a rate. The two turn-1 runs differ in the repo, and in the model's
-draw; F-NEW-145 logs the first as a sighting.
+draw; F-2026-11-02-intent-skipped-without-files logs the first as a sighting.
 
 ## What it changes in the design
 
@@ -50,7 +50,7 @@ draw; F-NEW-145 logs the first as a sighting.
   demonstration) made the build skip the fast tier and say so. A case's allowlist is part of the
   case; refused calls are printed and fail a case whose rule needs them.
 - **The shared runtime moves:** the child's hook re-points `/opt/devshop-current` for every session
-  in the container, the caller's hooks included (F-NEW-144). The runner runs cases one at a time
+  in the container, the caller's hooks included (F-2026-11-02-nested-session-moves-runtime). The runner runs cases one at a time
   and restores the link on exit.
 - **Transcripts name the caller:** paths under the calling session's scratch directory carry its
   id, so the runner works under a fresh `mktemp -d` and never writes results into the repo.
@@ -77,7 +77,7 @@ draw; F-NEW-145 logs the first as a sighting.
 - The reviewer-eval gaps are as stated: runs 2–3 are not held out (its README says so), the five
   planted types are all spec and test plants, the W10.6.9 severity rule is proven only on the
   prompt's text, `check.sh` needs a clone of an external fixture repo, and there are three suites
-  with no single command. Logged as F-NEW-150 and F-NEW-151 (renumbered from 142 and 143, which `main` took first).
+  with no single command. Logged as F-2026-11-02-reviewer-eval-tuned-plants and F-2026-11-02-reviewer-eval-three-suites.
 
 ## Finding → case
 

@@ -42,7 +42,7 @@ slices are judged on a real run. The spike that priced it:
   pinned to the commit under test with its devshop copies re-applied, `check` passing, and committed
   as the base before the first owner turn; the grader diffs the tree, untracked files included,
   against that base (the spec review)
-- **The shared link (F-NEW-144):** the runner writes the original `/opt/devshop-current` target to a
+- **The shared link (F-2026-11-02-nested-session-moves-runtime):** the runner writes the original `/opt/devshop-current` target to a
   record file before the first case, restores it on exit, restores a record a crashed run left on
   start, and fails if the link isn't back (review, 2026-11-04)
 - **Outcomes:** a case is PASS, FAIL or could-not-run (CNR). A run whose session line doesn't name
@@ -107,6 +107,6 @@ slices are judged on a real run. The spike that priced it:
   are R-18, both judged on this slice's real numbers.
 - `pr` § 3–5 (they need GitHub), `new-project` (the pin the runner writes stops it) and the plugin's
   `upgrade` (it isn't in `runtime/`): left to the static tier and a north-star run.
-- The root fix of F-NEW-144 in the plugin's dispatcher, and F-NEW-88's rule (R-19).
+- The root fix of F-2026-11-02-nested-session-moves-runtime in the plugin's dispatcher, and F-NEW-88's rule (R-19).
 - Long sessions: short cases catch what an edit to the text does, not compliance deep into a long
   session.

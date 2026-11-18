@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # This repo's lint, declared once for both CI's `fast` job (via scripts/check-fast.sh) and the devshop's
 # pre-push hook, so the two run the same checks: formatting, shellcheck, the docs map, commit
-# identities since <base>, and CI's own two-tier shape (runtime/scripts/ci-tiers-check.py).
+# identities since <base>, CI's own two-tier shape (runtime/scripts/ci-tiers-check.py), and the
+# record tables' compact rows (scripts/table-rows-check.py).
 # Usage: scripts/lint.sh [base-sha]   (run from the repo root; base as for commit-identity-check.sh)
 # Every check runs even after one fails. Exit 0 = clean; 1 = findings; 2 = a check couldn't run.
 set -uo pipefail
@@ -25,4 +26,5 @@ check shellcheck.sh
 check docs-map-check.py
 check commit-identity-check.sh "${1:-}"
 check ../runtime/scripts/ci-tiers-check.py .github/workflows/ci.yml
+check table-rows-check.py FINDINGS.md ROADMAP.md
 exit "$worst"

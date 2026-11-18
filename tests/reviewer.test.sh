@@ -33,6 +33,8 @@ case "${STUB_ACT:-}" in
   # As the model would: browse a page of the local run, and check it serves meanwhile.
   browse) devshop-browse /page >"$STUB_LOG.browse" 2>&1 || exit 8
     curl --noproxy '*' -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$(sed -n 's/^PORT=//p' "$LR_ENV")/" >"$STUB_LOG.answer" ;;
+  # As a model would that tries the smoke run's port: it must be stopped already.
+  probe) curl --noproxy '*' -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:$(sed -n 's/^PORT=//p' "$LR_ENV")/" >"$STUB_LOG.answer" ;;
   touch-real) echo x >"$REAL_REPO/stray.txt" ;;
 esac
 cat "$STUB"
@@ -295,6 +297,7 @@ expect "claude exiting non-zero is could-not-run" 2 could-not-run '.reason|test(
 STUB_ACT=touch-real run "$r" pass --base main
 expect "a changed real worktree is could-not-run" 2 could-not-run '.reason|test("worktree")'
 rm -f "$r/stray.txt"
+# shellcheck disable=SC2030  # PATH is narrowed in this subshell only
 (export PATH="/usr/bin:/bin"; run "$r" pass --base main
   expect "no claude on PATH is could-not-run" 2 could-not-run '.reason|test("claude")')
 sed -i 's/^TIMEOUT=.*/TIMEOUT=1/' "$work/reviewer/review.sh"
@@ -600,18 +603,24 @@ done
 [ -z "$(git -C "$r" status --porcelain)" ] || fail "AC-1: the review dirtied the real worktree"
 echo "ok - AC-1: the local run starts with PORT and node_modules, without the session, and is gone after"
 
-# A script the change adds itself is not run: the base declares none.
+# A script the change adds itself gets a smoke run (reviewer-local-run-build AC-5, superseding
+# reviewer-browser AC-1's "is not run"): started and answering, then stopped before the model runs;
+# no browser, and the prompt keeps the no-local-run line, since the base declares none.
 r="$work/lr2"; lr_project "$r" "$serve_script" head
-rm -f "$BROWSE_LOG" "$LR_ENV"
-run "$r" pass --base main
-expect "AC-1: a change that adds scripts/local-run.sh itself" 0 pass
-[ ! -e "$LR_ENV" ] && [ ! -e "$BROWSE_LOG" ] || fail "AC-1: a local run added by the change was run"
+rm -f "$BROWSE_LOG" "$LR_ENV" "$STUB_LOG.answer"
+STUB_ACT=probe run "$r" pass --base main
+expect "reviewer-local-run-build AC-5: a change that adds scripts/local-run.sh itself" 0 pass
+[ -n "$(lr_port)" ] || fail "reviewer-local-run-build AC-5: the local run the change adds got no smoke run"
+[ ! -e "$BROWSE_LOG" ] || fail "reviewer-local-run-build AC-4: the smoke run ran devshop-browse"
+[ "$(cat "$STUB_LOG.answer")" = 000 ] || fail "reviewer-local-run-build AC-4: the smoke run still answered while the model ran"
+! answers "$(lr_port)" || fail "reviewer-local-run-build AC-4: the smoke run still answers after the review"
+! lr_left || fail "reviewer-local-run-build AC-4: the smoke run left its child behind"
 p=$(tr -s "\n" " " <"$STUB_LOG.args")
 grep -qF "This project declares no local run (no \`scripts/local-run.sh\` at the base commit), so there is no browser" <<<"$p" \
   || fail "AC-3: the prompt without a local run lacks the no-local-run line"
 ! grep -qF "\`devshop-browse\`" <<<"$p" || fail "AC-3: the prompt without a local run names devshop-browse"
 [ ! -s "$STUB_LOG.browse-cmd" ] || fail "AC-3: devshop-browse is on the reviewer's PATH without a local run"
-echo "ok - AC-3: no local run at the base: nothing started, no devshop-browse, the prompt says so"
+echo "ok - AC-3, reviewer-local-run-build AC-5: a local run the change adds is smoke-run, not browsed"
 
 # Words only: nothing is started, whatever the base declares.
 r="$work/lr3"; lr_project "$r" "$serve_script"
@@ -701,5 +710,195 @@ browser shows you, when you have one: the page's text in its facts and in its sc
 output and request URLs." "$work/reviewer/prompt.md" || fail "AC-6: prompt.md's data rule doesn't cover what the browser shows"
 reviewer=$saved_reviewer
 echo "ok - AC-4: devshop-browse allowed, web tools still denied, {{BROWSE}} required"
+
+# --- A pnpm workspace whose site is built first (specs/reviewer-local-run-build.md), on
+# tests/fixtures/reviewer-workspace/. A fresh copy of the reviewer with short limits and the stub
+# browse.mjs; pnpm is the one this repo pins (reviewer-local-run-build AC-7: none is a failure, never
+# a skip), behind a wrapper that logs its arguments and, with PNPM_SLOW set, sleeps instead.
+pin_pnpm="$repo_root/node_modules/.bin/pnpm"
+[ -x "$pin_pnpm" ] || fail "reviewer-local-run-build AC-7: no pinned pnpm in node_modules/.bin (run npm ci)"
+cp -r "$work/reviewer" "$work/reviewer-ws"
+sed -i -e 's/^LOCAL_RUN_WAIT=60 /LOCAL_RUN_WAIT=10 /' -e 's/^BUILD_WAIT=300 /BUILD_WAIT=4 /' \
+  -e 's/^INSTALL_WAIT=120 /INSTALL_WAIT=4 /' "$work/reviewer-ws/review.sh"
+[ "$(grep -cE '^(LOCAL_RUN_WAIT=10|BUILD_WAIT=4|INSTALL_WAIT=4) ' "$work/reviewer-ws/review.sh")" = 3 ] \
+  || fail "reviewer-local-run-build: could not shorten the limits in the copy"
+cp "$work/reviewer-lr/browse.mjs" "$work/reviewer-ws/browse.mjs"
+mkdir -p "$work/pnpm-bin"
+cat >"$work/pnpm-bin/pnpm" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"$work/pnpm.log"
+[ -z "\${PNPM_SLOW:-}" ] || [ "\$1" != install ] || exec python3 -c "import time; time.sleep(300)" "\$LR_MARKER"
+exec "$pin_pnpm" "\$@"
+EOF
+chmod +x "$work/pnpm-bin/pnpm"
+fx="$repo_root/tests/fixtures/reviewer-workspace"
+ws_spec='# Spec\n\nAcceptance:\n1. AC-1: one.\n2. AC-2: two.\n'
+# ws_project <repo> [<variant>|-] [base|head]: the workspace on main, its scripts/local-run.sh on main
+# (default) or added by the change; the change adds the spec, the variant's files and a page edit.
+# The local run's copy also writes its environment to $LR_ENV, as the local-run tests above do.
+ws_project() {
+  local r=$1 variant=${2:--} where=${3:-base}
+  git init -q "$r"
+  cp -r "$fx/base/." "$r/"
+  # shellcheck disable=SC2016  # expanded by the local run, not here
+  sed -i '2a [ -z "${LR_ENV:-}" ] || { env >"$LR_ENV"; [ -L node_modules ] \&\& echo ROOT_LINKED >>"$LR_ENV"; [ -d apps/web/node_modules/.bin ] \&\& echo WEB_BIN >>"$LR_ENV"; }' \
+    "$r/scripts/local-run.sh"
+  grep -q ROOT_LINKED "$r/scripts/local-run.sh" || fail "could not instrument the fixture's local run"
+  [ "$where" = base ] || mv "$r/scripts/local-run.sh" "$work/ws-local-run.sh"
+  git -C "$r" add -A && git -C "$r" commit -qm "init"
+  git -C "$r" checkout -qb feat/x
+  mkdir -p "$r/specs" && printf %b "$ws_spec" >"$r/specs/x.md"
+  [ "$variant" = - ] || cp -r "$fx/$variant/." "$r/"
+  [ "$where" = base ] || mv "$work/ws-local-run.sh" "$r/scripts/local-run.sh"
+  sed -i 's/Built by the site tool/Built by the site tool, changed/' "$r/apps/web/src/index.html"
+  git -C "$r" add -A && git -C "$r" commit -qm "change"
+}
+# shellcheck disable=SC2031  # PATH is set for the one call
+ws_run() { PATH="$work/pnpm-bin:$PATH" run "$@"; }
+reviewer="$work/reviewer-ws/review.sh"
+
+# Build OK and served: the offline, frozen install in the clone (no node_modules linked), the build
+# with BUILD_SHA, then the local run serving what it built; the tool is reachable only through
+# apps/web/node_modules/.bin.
+r="$work/ws1"; ws_project "$r"
+rm -f "$work/pnpm.log" "$LR_ENV" "$BROWSE_LOG"
+CLAUDE_CODE_SESSION_ID=caller-session STUB_ACT=browse ws_run "$r" pass --base main
+expect "reviewer-local-run-build AC-2: a workspace whose site is built first is reviewed" 0 pass
+store=$(cd "$r" && "$pin_pnpm" store path)
+grep -qxF "install --offline --frozen-lockfile --store-dir $store" "$work/pnpm.log" \
+  || fail "reviewer-local-run-build AC-1: no offline frozen install with the session's store: $(cat "$work/pnpm.log")"
+! grep -qx ROOT_LINKED "$LR_ENV" || fail "reviewer-local-run-build AC-1: node_modules was linked in a pnpm project"
+grep -qx WEB_BIN "$LR_ENV" || fail "reviewer-local-run-build AC-1: the clone has no apps/web/node_modules/.bin"
+! grep -q '^CLAUDE_CODE_SESSION_ID=' "$LR_ENV" || fail "reviewer-local-run-build AC-2: the local run got the session's variables"
+port=$(lr_port)
+[ "$(cat "$STUB_LOG.answer")" = 200 ] || fail "reviewer-local-run-build AC-2: the local run wasn't serving during the review"
+[ "$(jq -c .args "$BROWSE_LOG" | head -1)" = '["/"]' ] || fail "reviewer-local-run-build AC-2: devshop-browse / not run"
+! answers "$port" || fail "reviewer-local-run-build AC-2: the local run still answers after the review"
+[ -z "$(git -C "$r" status --porcelain)" ] || fail "reviewer-local-run-build AC-2: the review dirtied the real worktree"
+[ ! -e "$r/node_modules" ] && [ ! -e "$r/apps/web/dist" ] || fail "reviewer-local-run-build AC-2: the install or build wrote into the real worktree"
+echo "ok - reviewer-local-run-build AC-1, AC-2: installed offline in the clone, built, served, browsed, gone after"
+
+# What the build wrote is what is served: a stub claude can't see the port, so a local run that
+# records /build.txt as it starts answering stands in. BUILD_SHA is the head commit, and the build's
+# environment lacks the session's variables.
+r="$work/ws2"; ws_project "$r"
+cat >"$r/scripts/build.sh.new" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[ -z "${LR_ENV:-}" ] || env >"$LR_ENV.build"
+cd apps/web
+exec ./node_modules/.bin/site-tool build src dist
+EOF
+mv "$r/scripts/build.sh.new" "$r/scripts/build.sh" && chmod +x "$r/scripts/build.sh"
+# shellcheck disable=SC2016  # expanded by the local run, not here
+sed -i 's|^exec ./node_modules/.bin/site-tool serve dist "$PORT"$|[ -z "${LR_ENV:-}" ] \|\| cp dist/build.txt "$LR_ENV.served"\nexec ./node_modules/.bin/site-tool serve dist "$PORT"|' "$r/scripts/local-run.sh"
+grep -q 'LR_ENV.served' "$r/scripts/local-run.sh" || fail "could not instrument the local run"
+git -C "$r" add -A && git -C "$r" commit -qm "instrument"
+rm -f "$LR_ENV" "$LR_ENV.build" "$LR_ENV.served"
+CLAUDE_CODE_SESSION_ID=caller-session ws_run "$r" pass --base main
+expect "reviewer-local-run-build AC-2: the build's output is served" 0 pass
+[ "$(cat "$LR_ENV.served")" = "$(git -C "$r" rev-parse HEAD)" ] || fail "reviewer-local-run-build AC-2: what was served isn't the build of the head (BUILD_SHA)"
+grep -qx "BUILD_SHA=$(git -C "$r" rev-parse HEAD)" "$LR_ENV.build" || fail "reviewer-local-run-build AC-2: BUILD_SHA not the head commit"
+! grep -q '^CLAUDE_CODE_SESSION_ID=' "$LR_ENV.build" || fail "reviewer-local-run-build AC-2: the build got the session's variables"
+! grep -q '^PORT=' "$LR_ENV.build" || fail "reviewer-local-run-build AC-2: the build ran after the port was picked"
+echo "ok - reviewer-local-run-build AC-2: the build runs first, with BUILD_SHA and without the session"
+
+# ws_cnr <name> <variant|-> <reason regex> [base|head] [env...]: could-not-run with the reason, no
+# process of the marker left, and no local run started.
+ws_cnr() {
+  local name=$1 variant=$2 why=$3 where=${4:-base} r kv
+  shift $(($# < 4 ? $# : 4))
+  r=$(mktemp -d "$work/ws-XXXXXX") && rmdir "$r"
+  ws_project "$r" "$variant" "$where"
+  rm -f "$LR_ENV"
+  for kv in "$@"; do export "${kv?}"; done
+  ws_run "$r" pass --base main
+  for kv in "$@"; do unset "${kv%%=*}"; done
+  expect "$name" 2 could-not-run ".reason|test(\"$why\")"
+  ! jq -r .reason "$verdict" | grep -q $'\033' || fail "$name: the reason carries colour codes"
+  for _ in $(seq 20); do lr_left || break; sleep 0.1; done
+  ! lr_left || fail "$name: a process was left behind"
+  [ ! -e "$LR_ENV" ] || fail "$name: the local run started"
+}
+ws_cnr "reviewer-local-run-build AC-3: a build that exits 1" build-fails \
+  'the build \\(scripts/build.sh\\) exited 1: build broke: missing page'
+SECONDS=0
+ws_cnr "reviewer-local-run-build AC-3: a build past BUILD_WAIT" build-slow \
+  'the build \\(scripts/build.sh\\) did not finish within BUILD_WAIT \\(4s\\): building slowly'
+[ "$SECONDS" -lt 20 ] || fail "reviewer-local-run-build AC-3: a slow build was waited on for ${SECONDS}s"
+ws_cnr "reviewer-local-run-build AC-3: a build that leaves a process behind" build-leaves-child \
+  'the build \\(scripts/build.sh\\) left a process behind'
+ws_cnr "reviewer-local-run-build AC-1: an install whose lockfile doesn't match" lockfile-mismatch \
+  'the install in the clone \\(pnpm install --offline --frozen-lockfile\\) exited [0-9]+: .*'
+ws_cnr "reviewer-local-run-build AC-1: an install past INSTALL_WAIT" - \
+  'the install in the clone \\(pnpm install --offline --frozen-lockfile\\) did not finish within INSTALL_WAIT \\(4s\\)' base PNPM_SLOW=1
+# No pnpm on PATH: a PATH of links to every command but pnpm.
+mkdir -p "$work/nopnpm"
+# shellcheck disable=SC2031  # the PATH of this shell
+IFS=: read -ra dirs <<<"$PATH"
+for d in "${dirs[@]}"; do
+  for f in "$d"/*; do
+    n=${f##*/}
+    case $n in pnpm | pnpx) continue ;; esac
+    [ -x "$f" ] && [ ! -e "$work/nopnpm/$n" ] && ln -s "$f" "$work/nopnpm/$n"
+  done
+done
+r="$work/ws-nopnpm"; ws_project "$r"
+rm -f "$LR_ENV"
+PATH="$work/nopnpm" run "$r" pass --base main
+expect "reviewer-local-run-build AC-1: no pnpm on PATH" 2 could-not-run '.reason|test("pnpm not found")'
+[ ! -e "$LR_ENV" ] || fail "reviewer-local-run-build AC-1: the local run started without pnpm"
+# A base with scripts/build.sh whose head deleted it: the local run finds no build, and says why.
+r="$work/ws-nobuild"; ws_project "$r"
+git -C "$r" rm -q scripts/build.sh && git -C "$r" commit -qm "drop the build"
+ws_run "$r" pass --base main
+expect "reviewer-local-run-build AC-3: the head deleted scripts/build.sh" 2 could-not-run \
+  '.reason|test("exited before it answered \\(the head deleted scripts/build.sh\\): no build in apps/web/dist")'
+echo "ok - reviewer-local-run-build AC-1, AC-3: install and build failures are could-not-run, with the reason, nothing left"
+
+# Interrupted during the build: TERM to review.sh's group leaves no process of the build.
+r="$work/ws-int"; ws_project "$r" build-slow
+# shellcheck disable=SC2031  # PATH is set for the one call
+(cd "$r" && STUB=$work/pass.json REAL_REPO=$r PATH="$work/pnpm-bin:$PATH" exec setsid "$reviewer" --base main >/dev/null 2>&1) &
+wpid=$!
+for _ in $(seq 100); do lr_left && break; sleep 0.1; done
+lr_left || fail "reviewer-local-run-build AC-3: the slow build never started for the interrupt test"
+kill -TERM -- "-$wpid"
+wait "$wpid" 2>/dev/null || true
+for _ in $(seq 50); do lr_left || break; sleep 0.1; done
+! lr_left || fail "reviewer-local-run-build AC-3: an interrupted review left the build behind"
+echo "ok - reviewer-local-run-build AC-3: an interrupted review leaves no process of the build"
+
+# The smoke run on a workspace: a change that adds scripts/local-run.sh gets the install, the build
+# and the run, stopped before the model; it fails like a declared one; no browser either way.
+r="$work/ws-smoke"; ws_project "$r" - head
+rm -f "$work/pnpm.log" "$LR_ENV" "$BROWSE_LOG" "$STUB_LOG.answer"
+STUB_ACT=probe ws_run "$r" pass --base main
+expect "reviewer-local-run-build AC-4: a change that adds a workspace's local run is smoke-run" 0 pass
+grep -q '^install --offline --frozen-lockfile' "$work/pnpm.log" || fail "reviewer-local-run-build AC-4: the smoke run didn't install"
+[ -n "$(lr_port)" ] || fail "reviewer-local-run-build AC-4: the smoke run didn't start the local run"
+! answers "$(lr_port)" || fail "reviewer-local-run-build AC-4: the smoke run still answers"
+[ "$(cat "$STUB_LOG.answer")" = 000 ] || fail "reviewer-local-run-build AC-4: the workspace's smoke run answered while the model ran"
+[ ! -e "$BROWSE_LOG" ] && [ ! -s "$STUB_LOG.browse-cmd" ] || fail "reviewer-local-run-build AC-4: the smoke run got a browser"
+grep -qF "This project declares no local run" <(tr -s "\n" " " <"$STUB_LOG.args") || fail "reviewer-local-run-build AC-4: the smoke run's prompt lacks the no-local-run line"
+ws_cnr "reviewer-local-run-build AC-4: a smoke run whose build fails" build-fails 'the build \\(scripts/build.sh\\) exited 1' head
+# No scripts/local-run.sh at the head: nothing runs, the build included; nor in a words-only review.
+r="$work/ws-none"; ws_project "$r" - head
+git -C "$r" rm -q scripts/local-run.sh && git -C "$r" commit -qm "no local run after all"
+rm -f "$work/pnpm.log" "$LR_ENV"
+cp "$fx/build-slow/scripts/build.sh" "$r/scripts/build.sh" && git -C "$r" commit -qam "slow build"
+ws_run "$r" pass --base main
+expect "reviewer-local-run-build AC-4: no local run at the base or the head runs nothing" 0 pass
+[ ! -e "$work/pnpm.log" ] || fail "reviewer-local-run-build AC-4: an install ran with no local run"
+! lr_left || fail "reviewer-local-run-build AC-4: the build ran with no local run"
+r="$work/ws-words"; ws_project "$r"
+ws_run "$r" pr-pass --base main --pr "$work/lr-w1.json"
+expect "reviewer-local-run-build AC-4: a full review with words" 0 pass '.scope=="full"'
+rm -f "$work/pnpm.log" "$LR_ENV"
+ws_run "$r" lr-words --base main --pr "$work/lr-w2.json"
+expect "reviewer-local-run-build AC-4: then a words-only review" 0 pass '.scope=="words"'
+[ ! -e "$work/pnpm.log" ] && [ ! -e "$LR_ENV" ] || fail "reviewer-local-run-build AC-4: a words-only review installed or ran"
+echo "ok - reviewer-local-run-build AC-4: smoke run on a workspace; nothing runs without a local run or in a words-only review"
+reviewer=$saved_reviewer
 
 echo "all reviewer tests passed"

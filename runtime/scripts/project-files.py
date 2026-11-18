@@ -15,7 +15,9 @@ Usage:
       3 = V has no manifest (older than W10.4.7), nothing to check.
   project-files.py plan --devshop-git D --from OLD --to NEW --project P
       Each devshop copy's diff to NEW, each seed template's change OLD..NEW with its commits, and
-      the entries NEW's manifest dropped (never deleted). Changes nothing. Exit 0.
+      the entries NEW's manifest dropped (never deleted). Changes nothing. Exit 0. OLD `none` (a
+      project with no pin, whose seeds came from a template of unknown age): each seed's diff from
+      the project's own file to NEW's template, and removals can't be listed.
   project-files.py apply --devshop-git D --version V --project P --file <project path>
       Writes V's content and mode for one devshop file. Refuses seeds, unlisted paths, symlinks
       and paths whose directory leaves the project. Exit 0.
@@ -177,9 +179,9 @@ def text(data):
 def plan(a):
     gd, project = a["devshop-git"], a["project"]
     new = resolve(gd, a["to"])
-    old = resolve(gd, a["from"])
+    old = None if a["from"] == "none" else resolve(gd, a["from"])
     entries = manifest(gd, new)
-    print(f"project-files plan: {old[:12]} -> {new[:12]}")
+    print(f"project-files plan: {old[:12] if old else 'no pin'} -> {new[:12]}")
     for owner, src, dst, optional in entries:
         if owner == "devshop":
             full = os.path.join(project, dst)
@@ -191,6 +193,18 @@ def plan(a):
             print(f"== {dst} ({label}, from {src}): {'; '.join(found) if found else 'same as the new version'}")
             mine = open(full, "rb").read() if os.path.isfile(full) and not os.path.islink(full) else b""
             sys.stdout.writelines(difflib.unified_diff(text(mine), text(blob(gd, new, src)[0]),
+                                                       f"project/{dst}", f"{new[:12]}/{src}"))
+        elif old is None:
+            full = os.path.join(project, dst)
+            mine = open(full, "rb").read() if os.path.isfile(full) and not os.path.islink(full) else None
+            after = blob(gd, new, src)[0]
+            if mine == after:
+                print(f"== {dst} (seed, from {src}): no pin; the project's file is the new template")
+                continue
+            print(f"== {dst} (seed, from {src}): no pin, so the project's {'file' if mine is not None else 'lack of it'} "
+                  "against the new template: most differences are the project's own; bring only what it "
+                  "lacks, confirming a project diff")
+            sys.stdout.writelines(difflib.unified_diff(text(mine or b""), text(after),
                                                        f"project/{dst}", f"{new[:12]}/{src}"))
         else:
             before, after = blob(gd, old, src), blob(gd, new, src)
@@ -205,6 +219,9 @@ def plan(a):
             sys.stdout.write(log.stdout.decode())
             sys.stdout.writelines(difflib.unified_diff(text(before[0] if before else b""), text(after[0]),
                                                        f"{old[:12]}/{src}", f"{new[:12]}/{src}"))
+    if old is None:
+        print("== no pin: removals can't be listed")
+        return 0
     try:
         dropped = [e for e in manifest(gd, old) if e[2] not in {d for _, _, d, _ in entries}]
         for owner, src, dst, _ in dropped:

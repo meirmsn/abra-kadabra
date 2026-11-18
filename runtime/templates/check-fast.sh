@@ -13,6 +13,9 @@
 #     and the theme CSS (THEME_CSS below) is derived from it: scripts/ui/design-md-check.mjs, a copy
 #     of the devshop's runtime/templates/ui/design-md-check.mjs (ui.md § Checks). Without a
 #     DESIGN.md the baseline is the design and one line says so;
+#   - the count check, for each collection in COLLECTIONS below: no test under TEST_DIRS hard-codes
+#     how many items it holds (guidelines/parallel.md): scripts/count-check.py, a copy of the
+#     devshop's runtime/scripts/count-check.py, placed when the project declares a collection;
 #   - the stack's parts, from the stack home: unit tests, ...
 # Copy the scripts with their executable bit (exit 126, "couldn't run", otherwise). Keep a specs/
 # directory (a .gitkeep before the first spec): a missing one can't run.
@@ -46,6 +49,14 @@ if [ -f DESIGN.md ]; then
   part scripts/ui/design-md-check.mjs --theme "$THEME_CSS" DESIGN.md
 else
   echo "no DESIGN.md: the baseline is the design (ui.md § Design direction)"
+fi
+# Collections that parallel branches each add an item to: a directory of one file per item, a .json
+# array, or <file>.json#<key> (guidelines/parallel.md), e.g. (content/items).
+COLLECTIONS=()
+if [ ${#COLLECTIONS[@]} -gt 0 ]; then
+  part scripts/count-check.py "${tests[@]}" "${COLLECTIONS[@]}"
+else
+  echo "no COLLECTIONS: no count check"
 fi
 # --- Stack parts (from the stack home), e.g. part npm test ---
 exit "$worst"

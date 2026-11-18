@@ -72,7 +72,7 @@ src_sha=$(git -C "$src" rev-parse HEAD)
 mkdir -p "$work/opt/orig" "$work/opt/other" "$work/bin"
 ln -sfn "$work/opt/orig" "$work/opt/current"
 # The fake claude: records its arguments and environment, re-points the link as the plugin's hook
-# does (F-NEW-144), writes what $STUB_MODE says, and prints the matching stream with the pin's SHA.
+# does (F-2026-11-02-nested-session-moves-runtime), writes what $STUB_MODE says, and prints the matching stream with the pin's SHA.
 cat >"$work/bin/claude" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" >"$STUB_LOG.args"

@@ -20,7 +20,7 @@
 # time=<s>s refused=<n> <reason>", a tally, and "link restored: <target>".
 # Exit 1 on any FAIL, else 2 on any CNR (could-not-run), else 0.
 # The child's session-start hook re-points the shared runtime link for every session in the
-# container (F-NEW-144): the link's target is recorded first, restored on exit, and a record a
+# container (F-2026-11-02-nested-session-moves-runtime): the link's target is recorded first, restored on exit, and a record a
 # crashed run left is restored before anything else; a link that isn't back is could-not-run.
 set -uo pipefail
 

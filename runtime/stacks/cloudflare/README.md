@@ -26,10 +26,15 @@ so in the PR.
   a page adds its path, so the quality bar and the deploy's checks cover it. The fixture gave each
   route synthetic traffic; a static site gets a smoke check instead, and the canary fetches every
   listed path at the start and the end of its window (W10.10.5).
-- **Running locally:** `scripts/local-run.sh` serves the built site on `127.0.0.1:$PORT` with
-  `wrangler dev` (the same Worker that deploys) until stopped: the one way, used by the quality bar
-  below, the design review before `ship` and the reviewer's browser (the project contract's
-  `scripts/local-run.sh`; this home's [`supplies`](supplies) makes it required here).
+- **Running locally:** `scripts/build.sh` builds the site and `scripts/local-run.sh` serves what it
+  built on `127.0.0.1:$PORT` with `wrangler dev` (the same Worker that deploys) until stopped,
+  building nothing itself: the one way, used by the quality bar below, the design review before
+  `ship` and the reviewer's browser, each running `scripts/build.sh` first (the project contract's
+  `scripts/build.sh` and `scripts/local-run.sh`; this home's [`supplies`](supplies) makes the local
+  run required here). The reviewer runs both in its clone, after an offline install for a pnpm
+  workspace, and smoke-runs a local run a change adds. A project whose `scripts/local-run.sh` still
+  builds (an OpenNext app) moves the build into `scripts/build.sh` in its upgrade PR: the steps are
+  in [the reviewer's README](../../reviewer/README.md#the-local-run-and-the-browser).
 
 ## Deploy, with the day-one rollback
 
@@ -116,7 +121,7 @@ review caught it (LOG #72).
 
 ## The quality bar, in the slow tier
 
-`scripts/check-slow.sh` builds the site and serves it through `scripts/local-run.sh` on a free local
+`scripts/check-slow.sh` builds the site (`scripts/build.sh`) and serves it through `scripts/local-run.sh` on a free local
 port (`wrangler dev`, the same Worker that deploys), waits until `/build.txt` is the commit, then on
 every page in `quality/routes.json`:
 

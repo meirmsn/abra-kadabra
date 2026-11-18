@@ -1,0 +1,84 @@
+# Spike: what a throwaway macOS VM can build, test and run (2026-10-30)
+
+For [the Apple proposal](../../apple-native-proposal.md). A record of what was run, not live code.
+
+**Question.** Can an agent build, run, UI-test and screenshot a SwiftUI app, and run Core ML and MLX,
+inside a macOS VM on Apple silicon, with no signing identity? Does portable Swift build on Linux?
+
+**Where.** GitHub's hosted arm64 macOS runners, which are Virtualization-framework VMs (each reported
+`kern.hv_vmm_present=1`, "Apple M1 (Virtual)", 3 cores, 7 GB, model `VirtualMac2,1`), images
+`macos-15` and `macos-26` (macOS 26.6.2, Xcode 26.6); Linux on `ubuntu-24.04`. Each job is a fresh VM,
+deleted after: the "clone, run, delete" cycle of a local throwaway VM, on hardware that isn't the
+owner's. A temporary workflow on the proposal's branch ran it twice (runs 1 and 2); it was removed
+before the PR and is kept here as [`workflow.yml`](workflow.yml).
+
+**What ran** (all in this directory):
+
+- [`IntervalCore/`](IntervalCore): a portable Swift package (the logic that gives each timed item the
+  label of the span that overlaps it most), with 4 XCTest cases.
+- [`app/`](app): a hello-world SwiftUI app for macOS and iOS (XcodeGen `project.yml`) and one XCUITest
+  that clicks a button, checks the label and attaches a screenshot. Signed ad hoc
+  (`CODE_SIGN_IDENTITY=-`) on macOS, unsigned for the simulator.
+- [`probes/`](probes): `metal.swift` (the GPU Metal sees), `make_model.py` + `coreml_probe.swift` (an
+  8-layer fp16 Core ML program; the devices Core ML lists, its compute plan, 500 predictions per
+  compute-unit setting), `mlx_probe.py` (MLX's device and a 2048² matmul on CPU and GPU).
+
+## Results
+
+| Probe                                  | macOS 15 VM                                                     | macOS 26 VM                                   |
+| -------------------------------------- | --------------------------------------------------------------- | --------------------------------------------- |
+| Portable Swift, `swift test`           | 4 passed, 31–42 s cold                                          | 4 passed, 33–44 s cold                        |
+| Metal device                           | "Apple Paravirtual device", unified memory, ~4.8 GB working set  | same                                          |
+| Metal families                         | `mac2` only; not `apple7`–`apple9`, not `metal3`                | same                                          |
+| Core ML devices                        | **CPU and GPU only, no Neural Engine**                          | **same**                                      |
+| Core ML plan with `.all` (tiny model)  | every op on CPU                                                 | same                                          |
+| Core ML, 500 predictions, ms           | cpuOnly 194, cpuAndGPU 193, cpuAndNeuralEngine 225, all 191     | 84, 53, 124, 78                               |
+| MLX 0.32.4, 20 × 2048² matmul fp32     | GPU 1.42 TFLOP/s; CPU 0.14–0.21                                 | GPU 1.19–1.37 TFLOP/s; CPU 0.43–0.54           |
+| macOS app: build + XCUITest            | **passed**, 55–70 s cold (one test 6.5 s)                       | not run                                       |
+| Screenshot from the test               | exported with `xcresulttool export attachments` and read back as an image: the app's window with the label after the click | not run |
+| `screencapture`, System Events         | worked (1024×768; the app's window listed)                      | not run                                       |
+| iOS Simulator: build + XCUITest        | **passed** (Xcode 16.4, iPhone 16 Pro): boot 53 s (first-boot data migration), build 2 min 23 s, test 51 s; screenshot attachment exported (not viewed here, see below)                                                        | not run                                       |
+
+Linux (`ubuntu-24.04`): Swift 6.4.1, `swift test` 4 passed, 24 s cold.
+
+In this cloud session (Linux, the devshop's network policy): **could not run** portable Swift.
+`download.swift.org` is denied (403 from the proxy) and Docker Hub refused the `swift:6.2` image (429,
+the anonymous pull limit, as REVIEW-3 saw for Supabase's images).
+
+**Renamed after the runs (2026-11-04).** The package and the app's strings first used words that
+said what the first app does; both now use neutral names (`IntervalCore`, "Items found",
+"Count items") under the rule on other projects, with the logic and the tests unchanged. The macOS
+screenshot showed the old label and was removed. The workflow copy uses the new path.
+
+**Surprises.** The iOS screenshot was exported in the VM but could not be read back here: the
+spike carried images out in the job log (base64), and this session reads logs only through the
+GitHub API, which returns them inline only when short; the log file and artifacts live on GitHub's
+storage host, which this environment's network policy refuses (403). `simctl io screenshot` after
+the test failed ("Error creating the image") because the test had shut the simulator down. Run 4
+failed on the spike's own device selection (`-showdestinations` listed only a placeholder). Run 1's Core ML probe failed before reaching Core ML: coremltools 9.0 has no native
+build for the image's default Python 3.15 ("BlobWriter not loaded"); run 2 used Homebrew's Python
+3.12. The macOS 15 and 26 images differ in CPU speed by 2–4× on the same test (noisy neighbours or
+host generation; not investigated). Asking Core ML for the Neural Engine in a VM raises no error: it
+quietly runs elsewhere, so an app must log the compute units it actually got.
+
+## The owner's test on the Air (2026-11-09)
+
+[air-test.md](air-test.md), run by the owner step by step in chat on a MacBook Air M4 (32 GB,
+macOS 15.6.1), results as reported:
+
+| Step                                | Result                                                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Install Tart                        | Homebrew's failed (softnet needs macOS 26); Tart 2.38.0 crashed at launch; Tart 2.34.0 with softnet 0.21.1 ran, checksums matching OpenAI's formulas                            |
+| Image                               | `macos-sequoia-xcode:26.6` as `base`: 140 GB disk, 87 GB on it; guest macOS 15.7.7, Xcode 26.6                                                                                  |
+| Start isolated (4 CPU, 8 GB)        | Reached a desktop. Softnet asked for the owner's password once                                                                                                                  |
+| Walls                               | No shared folders; router and Mac unreachable (timeouts); GitHub reachable (`HTTP/2 200`); paste from the Mac didn't work                                                      |
+| macOS UI test                       | `** TEST SUCCEEDED **`, 18.4 s                                                                                                                                                  |
+| The Mac during the test             | Memory pressure yellow and flat, 0 bytes swap, 27.45 of 32 GB in use (the VM's 8 GB plus the owner's apps)                                                                       |
+| agent-desktop                       | Installed; snapshot read the app; its click changed the label to "Items found: 2"                                                                                               |
+| Apple's Xcode plugin                | `xcrun agent plugin path` ran Xcode 26.6's `mcpbridge`, which refused to start: "built for macOS 26.0 which is newer than running OS". The plugin needs a macOS 26 guest      |
+| Remote Control                      | Logged in (the clipboard was turned on for the login only, then off again). `claude remote-control --spawn=same-dir` connected and registered a bridge environment               |
+| A cloud session in the VM           | Attaching this cloud session to the folder isn't offered on the owner's account. A new session started in the bridge environment, after the owner allowed it on a trusted device; with the owner approving each command, it reported macOS 15.7.7, `VirtualMac2,1`, user `admin`, the PR's commit, Xcode 26.6, `Macintosh HD` only, GitHub `200` |
+| Found on the way                    | That session started with the owner's claude.ai connectors attached (mail, files, calendar, docs). A Claude login in the VM brings them in                                     |
+
+**Not tested.** A real model of the first app in the VM; the iOS Simulator on the Air; anything on
+macOS 26 or 27.

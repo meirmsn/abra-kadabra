@@ -87,7 +87,8 @@ Projects pin the tag; `/ak:upgrade` defaults to the newest one. Proven by
   [`tests/ci-template-deploy.test.sh`](../tests/ci-template-deploy.test.sh)).
 - Secret scanning: [`.gitleaks.toml`](../.gitleaks.toml) is gitleaks' default rule set. CI's fast
   tier first runs [`scripts/secret-scan.sh`](../scripts/secret-scan.sh) over the commits a change
-  adds and the whole tree, then, with the other tests,
+  adds and the whole tree, its lockfiles included (they resolve only from a public registry or one
+  the committed `.npmrc` names: gitleaks' defaults skip lockfiles, F-NEW-146), then, with the other tests,
   [`tests/gitleaks.test.sh`](../tests/gitleaks.test.sh), which commits fake secrets to a scratch
   repo and fails unless every one is caught; [`tests/secret-scan.test.sh`](../tests/secret-scan.test.sh)
   proves the scan fails on a secret in either place. To run it locally, install gitleaks (the
@@ -97,13 +98,16 @@ Projects pin the tag; `/ak:upgrade` defaults to the newest one. Proven by
   is the per-file version the per-edit nudge runs. Each check is a script proven by the test of the
   same name in `tests/` (it feeds a known-bad input, and a missing tool fails):
   - [`format-check.sh`](../scripts/format-check.sh): `prettier --check .` with the version
-    [`package.json`](../package.json) pins (`npm ci` installs it); `.prettierignore` skips the spikes.
+    [`package.json`](../package.json) pins (`npm ci` installs it); `.prettierignore` skips the spikes and the two record tables.
   - [`shellcheck.sh`](../scripts/shellcheck.sh): shellcheck (version pinned in `ci.yml`) over every
     shell script, found by extension or shebang; the spikes are skipped.
   - [`commit-identity-check.sh`](../scripts/commit-identity-check.sh): rejects commits a change adds
     under a test identity, such as the one tests commit as (L-41).
   - [`docs-map-check.py`](../scripts/docs-map-check.py): this page's rule, above.
   - [`ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py) on this repo's own `ci.yml` (below).
+  - [`table-rows-check.py`](../scripts/table-rows-check.py): `FINDINGS.md` and `ROADMAP.md` keep
+    compact table rows, so one long row never rewrites the others
+    ([spec](../specs/parallel-safe-shared-files.md)).
 - Skills: [`scripts/skills-check.py`](../scripts/skills-check.py) checks every skill in
   `runtime/skills/` and the install plugin's own (`--plugin-skills`) names itself after its
   directory, has a description, names only `/opt/devshop-current/` files its
@@ -181,8 +185,12 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   green CI: the files placed, the owner's steps and the proof on a fresh repo.
 - [`other-projects-detail.md`](../specs/other-projects-detail.md): other projects appear here by a
   plain description and the lesson, never by name, PR number or feature.
+- [`parallel-safe-shared-files.md`](../specs/parallel-safe-shared-files.md): parallel branches
+  stop conflicting on shared lists and counters (R-22).
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
+- [`pinned-tools-survive-outage.md`](../specs/pinned-tools-survive-outage.md): a pinned tool the
+  cache build couldn't download is repaired at session start, or the session is told what it costs.
 - [`project-contract.md`](../specs/project-contract.md): one project contract, what every project
   must provide, checked at session start and in its `fast` tier.
 - [`react-home-ui-defaults.md`](../specs/react-home-ui-defaults.md): the Next.js home's UI
@@ -191,6 +199,12 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   `place.sh`, and one fast-tier line that runs the token check.
 - [`reviewer-browser.md`](../specs/reviewer-browser.md): the reviewer judges a local run of the
   site against `DESIGN.md`, with a browser that reaches only that run.
+- [`reviewer-local-run-build.md`](../specs/reviewer-local-run-build.md): the reviewer installs a
+  pnpm workspace offline in its clone and runs the project's `scripts/build.sh` before its local
+  run, and smoke-runs a local run a change adds.
+- [`shared-changes-first.md`](../specs/shared-changes-first.md): a shared change or a flaky test's
+  fix lands first, in its own small PR; a failing unrelated test is never re-run, its cause is
+  fixed (R-23).
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
   first, light and dark.
 
@@ -364,3 +378,6 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2b-thin/runtime/skills/devshop-probe2/SKILL.md).
+  - M4 Apple VM: what a throwaway macOS VM builds, tests and runs (for
+    [the Apple proposal](../kit/notes/revamp/apple-native-proposal.md)),
+    [README](../kit/notes/revamp/spikes/m4-apple-vm/README.md).

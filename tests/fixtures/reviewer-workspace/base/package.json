@@ -1,0 +1,5 @@
+{
+  "name": "fixture-workspace",
+  "private": true,
+  "description": "The reviewer's workspace fixture: a site that is built, then served."
+}

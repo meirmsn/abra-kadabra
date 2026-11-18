@@ -1,1 +1,16 @@
-_chain
+#!/usr/bin/env bash
+# The devshop's commit-msg hook. Feedback, not a wall: `git commit --no-verify` skips it. It stops a
+# commit whose message links a Claude session (claude.ai/code/session_…): the project's rules ban
+# it, and a cloud session's attribution adds a `Claude-Session:` trailer that a squash merge carries
+# to main. A diff below git's scissors line (`commit -v`) is not the message. Then the project's own
+# commit-msg hook runs (chained, husky included).
+# shellcheck source=runtime/git-hooks/_lib.sh
+. "$(dirname "$(readlink -f "$0")")/_lib.sh"
+msg=${1:?commit-msg: no message file}
+text=$(sed '/^# -\{24\} >8 -\{24\}$/,$d' -- "$msg") || { echo "devshop commit-msg: can't read $msg" >&2; exit 1; }
+if grep -nE 'claude\.ai/code/session_[A-Za-z0-9]' <<<"$text" >&2; then
+  echo "devshop commit-msg: the message links a Claude session (line above), which the project's rules ban." >&2
+  echo "Drop the line (a Claude-Session: trailer included) and commit again." >&2
+  exit 1
+fi
+project_hook commit-msg "$@"

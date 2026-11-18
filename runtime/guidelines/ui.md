@@ -87,7 +87,8 @@ styles, scripts a page loads, its assets), after its tests pass and before `ak:p
 ([spec](../../specs/design-review-in-build.md)). It is feedback, not a wall.
 
 - **Not without `DESIGN.md`:** no `DESIGN.md` in the project, no run; the PR's line says so.
-- **On a local run:** commit first (it needs a clean tree), start the app with the project's
+- **On a local run:** commit first (it needs a clean tree), run the project's `scripts/build.sh`
+  when it has one, start the app with its
   `scripts/local-run.sh` (`PORT=<free port> scripts/local-run.sh`, the one way to run the site
   locally; the project contract lists it), and run it with `http://127.0.0.1:<port>`, scoped to the
   pages the change touches (not its diff-aware mode, which takes no URL and looks only on ports
@@ -123,8 +124,9 @@ styles, scripts a page loads, its assets), after its tests pass and before `ak:p
 
 The independent reviewer judges a UI change in a browser when the project declares
 `scripts/local-run.sh` ([spec](../../specs/reviewer-browser.md); how it runs:
-[the reviewer's README](../reviewer/README.md#the-local-run-and-the-browser)). Without it, the
-reviewer reviews UI by reading.
+[the reviewer's README](../reviewer/README.md#the-local-run-and-the-browser)), after running its
+`scripts/build.sh` when it has one ([spec](../../specs/reviewer-local-run-build.md)). Without it,
+the reviewer reviews UI by reading.
 
 - **The script** serves the site on `127.0.0.1:$PORT` (bound to that address explicitly, not
   `localhost`, which may be `::1` only) and runs until stopped, e.g.

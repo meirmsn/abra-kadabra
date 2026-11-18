@@ -13,6 +13,8 @@ from it on its first entry; delete this comment and the example row there.
 - Only this repo's: a project need that is really a devshop feature goes on the devshop's roadmap,
   through the block of devshop findings the session gives the owner at hand-over.
 - ID: R-<n>, never reused; the next free number, checked against the latest main before ship.
+- Compact rows, as in `FINDINGS.md`: one space beside each pipe, the file kept out of the
+  formatter (`.prettierignore`), so one long row never rewrites the others.
 - Order: the owner's priority. Add at the bottom unless the owner says where; only the owner
   reorders.
 - Status: Open, Done (with the PR that delivered it) or Dropped (with the reason). A closed entry

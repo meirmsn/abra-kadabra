@@ -35,6 +35,8 @@ hooks_json="$repo_root/install/plugin/devshop/hooks/hooks.json"
 matcher=$(jq -er '.hooks.PreToolUse[0].matcher' "$hooks_json") || fail "the plugin registers no PreToolUse hook"
 grep -Eqx "$matcher" <<<"Bash" || fail "PreToolUse matcher '$matcher' misses Bash"
 cmd=$(jq -er '.hooks.PreToolUse[0].hooks[0].command' "$hooks_json")
+# The command runs the plugin's own bash-gate.sh, from the plugin's root as Claude Code sets it.
+export CLAUDE_PLUGIN_ROOT="$repo_root/install/plugin/devshop"
 
 # run_raw <stdin>: run the hook as Claude Code does before a Bash call; sets out, err and rc.
 run_raw() {
@@ -61,6 +63,13 @@ for c in 'ls -la' 'git status' 'git stash' 'git push origin HEAD' 'npm ci'; do
   { [ "$rc" = 0 ] && [ -z "$out" ]; } || { echo "rc=$rc out=$out err=$err" >&2; fail "'$c' was not let through silently"; }
 done
 echo "ok - ordinary commands pass silently"
+# With dcg present, the repair command too goes to dcg: a stand-in dcg that blocks everything shows it.
+printf '#!/usr/bin/env bash\necho "dcg saw it" >&2\nexit 7\n' >"$work/dcg-all" && chmod +x "$work/dcg-all"
+ln -sfn "$work/dcg-all" /opt/devshop-tools/bin/dcg
+run /opt/devshop-plugin/devshop/hooks/repair-tools.sh
+[ "$rc" = 2 ] || { echo "rc=$rc out=$out err=$err" >&2; fail "pinned-tools-survive-outage AC-6: with dcg present, the repair command skipped pre-bash.sh"; }
+ln -sfn "$real_dcg" /opt/devshop-tools/bin/dcg
+echo "ok - pinned-tools-survive-outage AC-6: with dcg present, the repair command goes through pre-bash.sh like any other"
 
 run_raw "not json"
 denied_by_dcg || { echo "rc=$rc out=$out err=$err" >&2; fail "unparseable hook input was not blocked"; }
@@ -73,6 +82,30 @@ rm /opt/devshop-tools/bin/dcg
 run 'ls -la'
 blocked_by_hook "dcg not found" || { echo "rc=$rc out=$out err=$err" >&2; fail "missing dcg: want exit 2 saying so"; }
 echo "ok - a missing dcg blocks, never a silent pass"
+
+# pinned-tools-survive-outage AC-6: without dcg, only the exact repair command gets through the gate.
+REPAIR=/opt/devshop-plugin/devshop/hooks/repair-tools.sh
+run "$REPAIR"
+{ [ "$rc" = 0 ] && [ -z "$out" ] && [ -z "$err" ]; } || { echo "rc=$rc out=$out err=$err" >&2; fail "pinned-tools-survive-outage AC-6: the exact repair command was not let through without dcg"; }
+for c in "$REPAIR --help" "$REPAIR; true" "$REPAIR && true" "$REPAIR | cat" "bash $REPAIR" " $REPAIR" "$REPAIR " "$REPAIR"$'\n' \
+  "$REPAIR"$'\n'"ls" "/opt/devshop-plugin/devshop/hooks/../hooks/repair-tools.sh" "/opt/devshop-plugin/devshop/hooks/repair-tools.shx" 'ls -la'; do
+  run "$c"
+  blocked_by_hook "dcg not found" || { echo "rc=$rc out=$out err=$err" >&2; fail "pinned-tools-survive-outage AC-6: '$c' got through the gate without dcg"; }
+done
+run_raw "not json"
+blocked_by_hook "dcg not found" || { echo "rc=$rc out=$out err=$err" >&2; fail "pinned-tools-survive-outage AC-6: input that isn't JSON got through the gate"; }
+run_raw "$(jq -nc --arg c "$REPAIR" '{tool_name: "Bash", tool_input: {command: [$c]}}')"
+blocked_by_hook "dcg not found" || fail "pinned-tools-survive-outage AC-6: a command that isn't a string got through the gate"
+# Without jq on PATH the gate can't compare, so every command goes to pre-bash.sh.
+mkdir -p "$work/nojq"
+for t in bash cat dirname timeout; do ln -sf "$(command -v "$t")" "$work/nojq/$t"; done
+rc=0
+err=$(PATH="$work/nojq" bash -c "$cmd" 2>&1 >/dev/null <<<"$(jq -nc --arg c "$REPAIR" '{tool_input: {command: $c}}')") || rc=$?
+{ [ "$rc" = 2 ] && grep -q "dcg not found" <<<"$err"; } || { echo "rc=$rc err=$err" >&2; fail "pinned-tools-survive-outage AC-6: without jq the repair command got through the gate"; }
+rc=0
+bash "$CLAUDE_PLUGIN_ROOT/hooks/bash-gate.sh" <<<'{"tool_input":{"command":"ls"}}' 2>/dev/null || rc=$?
+[ "$rc" = 2 ] || fail "bash-gate.sh with no guard named didn't block (exit $rc)"
+echo "ok - pinned-tools-survive-outage AC-6: without dcg only the exact repair command passes; anything added, non-JSON input or no jq goes to pre-bash.sh and is blocked"
 
 printf '#!/usr/bin/env bash\necho "dcg crashed" >&2\nexit 3\n' >"$work/dcg-broken" && chmod +x "$work/dcg-broken"
 ln -sfn "$work/dcg-broken" /opt/devshop-tools/bin/dcg

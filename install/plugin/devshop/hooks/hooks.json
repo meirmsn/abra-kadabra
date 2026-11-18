@@ -5,7 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.sh\"",
+            "timeout": 720
           }
         ]
       }
@@ -16,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x /opt/devshop-current/hooks/pre-bash.sh ]; then exec /opt/devshop-current/hooks/pre-bash.sh; fi",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/bash-gate.sh\" /opt/devshop-current/hooks/pre-bash.sh",
             "timeout": 30
           }
         ]

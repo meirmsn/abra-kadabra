@@ -4,3 +4,8 @@ kit/notes/revamp/spikes/
 
 # Review fixtures stay byte-exact: formatting changed a spec example ("a  b" -> "a b").
 tests/fixtures/
+
+# The record tables stay compact, one space beside each pipe, so a row never rewrites another
+# (specs/parallel-safe-shared-files.md); scripts/table-rows-check.py holds them to it.
+FINDINGS.md
+ROADMAP.md

@@ -25,6 +25,8 @@ scripts named here; run them, never retype them as shell.
   `/opt/devshop-current/guidelines/` if any; a UI with no baseline: `/opt/devshop-current/templates/ui/`.
   A change to what a page renders reads the project's `DESIGN.md` first (its front matter is the
   tokens, its prose the reasons), then `/opt/devshop-current/guidelines/design.md` and `ui.md`.
+- **Adds an item to a collection** (a page, a game, a route): `/opt/devshop-current/guidelines/parallel.md`;
+  the branch adds the item's own file and edits no hand-kept shared list.
 - On conflict the project wins; say so in the PR.
 - **CI:** none yet? Start from `/opt/devshop-current/templates/ci.yml`; declare
   `scripts/check-fast.sh` (unit) and `scripts/check-slow.sh` (end to end).
@@ -52,6 +54,8 @@ scripts named here; run them, never retype them as shell.
 - Root cause over band-aid: a mitigation is labelled as one, with the root cause named beside it.
 - Fix loops: real logs before a second attempt, each retry fresh with what was tried; then ask.
 - Something the spec didn't foresee is a spec change: raise it with the owner (`intent`, step 5).
+- Needs a change to shared code, or a fix to a shared or flaky test? Stop there: it goes first, in
+  its own PR (`/opt/devshop-current/guidelines/parallel.md`).
 - Small, logical commits; subjects describe the observable change.
 
 ## 4. Hand over

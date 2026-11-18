@@ -13,7 +13,7 @@ How to know a change to the devshop's skills (`runtime/skills/*`) didn't make th
   [grade.py](grade.py) from what the session did and what it left in the repo. Run it after
   committing a skill change, in a cloud session where `claude` is logged in. Not in CI (no LLM jobs
   there, D-06). Each line shows the run's cost, so you can see what a check of a skill change costs.
-  It moves the container's shared runtime link while a case runs (F-NEW-144), so don't run other
+  It moves the container's shared runtime link while a case runs (F-2026-11-02-nested-session-moves-runtime), so don't run other
   devshop work in the same container meanwhile; the link is restored at the end, and after a crash
   at the next run.
 

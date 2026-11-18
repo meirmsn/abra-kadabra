@@ -10,28 +10,39 @@ owner reorders. For each, the owner's words, the detail and the done-when stay o
 line in [kit/notes/revamp/workstreams/](kit/notes/revamp/workstreams/), where its status is kept
 too; an entry is `Done` when its task is `[x]`.
 
-| ID   | Added      | What                                                                                                                                                                                                                                                                    | Status                                       |
-| ---- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| R-1  | 2026-10-16 | Close the website's first change: its record (the spec's question count, cost per change, weekly-limit percentage, the owner's touchpoints) — [W10.10.1](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m)                                    | Done, PR #133                                |
-| R-2  | 2026-10-16 | Approval ships: show it on a real PR merged on the owner's approval with no "merge" message — [W10.9.1](kit/notes/revamp/workstreams/W10-v2.md#w109-m1-close-out--p0--s-each)                                                                                           | Done, PR #142                                |
-| R-3  | 2026-10-16 | The Cloudflare stack home, written from what the website shipped — [W10.10.2](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m)                                                                                                               | Done, PR #144                                |
-| R-4  | 2026-10-16 | The canary as a CI record: production's health checked before the merge and after the deploy, with the read-only token — [W10.10.5](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m)                                                         | Done, in the website                         |
-| R-5  | 2026-10-16 | Build runs gstack's `/design-review` on the preview for every UI change, before `ship`; on a local run, since the preview exists only after `ship` (owner, 2026-10-17: "1. A") — [W10.10.8](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m) | Done, PR #145                                |
-| R-6  | 2026-10-16 | The reviewer gets a browser and judges a local run against `DESIGN.md` — [W10.10.4](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m)                                                                                                         | Done, PR #146                                |
-| R-16 | 2026-11-04 | Skills regression eval, slice 1: a free check of the skills' rule lines and section references, and one command that runs the real skills on one case — [spec](specs/skills-eval.md)                                                                                    | Done, PR #183                                |
-| R-7  | 2026-10-16 | M3: the first real app, the pilot web app on v2, with its React stack home decision — [M3](kit/notes/revamp/workstreams/W10-v2.md#m3--the-pilot-web-app-on-cloudflare), [W10.8.3](kit/notes/revamp/workstreams/W10-v2.md#w108-ui-design-baseline--p1--m)                | Open                                         |
-| R-17 | 2026-11-04 | Skills regression eval, slice 2: the go-before-spec (F-NEW-91) and feature-interview (F-NEW-78) cases, after a baseline on `main`                                                                                                                                       | Open                                         |
-| R-18 | 2026-11-04 | Skills regression eval, slice 3 (if wanted): a build smoke case and the design-direction slice case (F-NEW-79)                                                                                                                                                          | Open                                         |
-| R-8  | 2026-10-16 | M4: the iOS stack and the Mac; retire v1, with the owner's deferred credential and archive steps — [M4](kit/notes/revamp/workstreams/W10-v2.md#m4--coarse-detailed-when-next), [W0.5, W0.6](kit/notes/revamp/workstreams/W0-groundwork.md)                              | Open                                         |
-| R-9  | 2026-10-16 | After the revamp: the air-gapped adversarial reviewer as a required check — [PLAN.md § After the revamp](kit/notes/revamp/PLAN.md#after-the-revamp)                                                                                                                     | Open                                         |
-| R-10 | 2026-10-16 | Every repo keeps a roadmap and a findings log — [W10.9.8](kit/notes/revamp/workstreams/W10-v2.md#w109-m1-close-out--p0--s-each), [spec](specs/findings-and-roadmap.md)                                                                                                  | Done, PR #125                                |
-| R-11 | 2026-10-16 | Devshop releases: Conventional Commit titles, a release button only the owner can press, projects pin release tags — [spec](specs/devshop-releases.md)                                                                                                                  | Done, PRs #128, #134, #137 (v2.0.0 released) |
-| R-13 | 2026-10-20 | One project contract: what every project must provide, in one file the devshop checks at session start and in `fast`; the duplicates collapsed; the manifest covers what the upgrade claims to re-copy; R-12 is its first entry — [spec](specs/project-contract.md)     | Done, PR #151                                |
-| R-12 | 2026-10-19 | Projects' PR titles carry a Conventional Commit prefix too, placed by the devshop: a `pr-title-check.py` in the project files, checked in `fast` and by `ship.sh` — [spec](specs/project-contract.md)                                                                   | Done, PR #151 (the contract's first entry)   |
-| R-14 | 2026-10-20 | The session-start hook reads the wrong directory after a restart and runs without the project's pin, silently (F-NEW-77): root cause and fix, before the pilot web app adopts v2 — [W10.11.12](kit/notes/revamp/workstreams/W10-v2.md#w1011-the-first-real-app--p0--l)  | Done (W10.11.12)                             |
-| R-15 | 2026-10-30 | The metrics comment names the model(s) and splits the tokens (input, output, cache reads, cache writes) beside the dollars, and says which window of the session they cover — [spec](specs/metrics-model-and-tokens.md)                                                 | Done, PR #169                                |
-| R-19 | 2026-11-04 | A question the owner skipped is asked again, not filled with a default: the rule in `intent`, its eval case written first (F-NEW-88)                                                                                                                                    | Open                                         |
-| R-20 | 2026-11-06 | The runtime's skills load again on Claude Code 2.1.318 and later (F-NEW-147), and the plugin is named `ak`, so they read `ak:intent`, `ak:build` and so on (owner, 2026-11-06: "Yeah, do it with AK and fix them.") — [spec](specs/ak-plugin.md)                        | Done, PR #187                                |
+| ID | Added | What | Status |
+| --- | --- | --- | --- |
+| R-1 | 2026-10-16 | Close the website's first change: its record (the spec's question count, cost per change, weekly-limit percentage, the owner's touchpoints) — [W10.10.1](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m) | Done, PR #133 |
+| R-2 | 2026-10-16 | Approval ships: show it on a real PR merged on the owner's approval with no "merge" message — [W10.9.1](kit/notes/revamp/workstreams/W10-v2.md#w109-m1-close-out--p0--s-each) | Done, PR #142 |
+| R-3 | 2026-10-16 | The Cloudflare stack home, written from what the website shipped — [W10.10.2](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m) | Done, PR #144 |
+| R-4 | 2026-10-16 | The canary as a CI record: production's health checked before the merge and after the deploy, with the read-only token — [W10.10.5](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m) | Done, in the website |
+| R-5 | 2026-10-16 | Build runs gstack's `/design-review` on the preview for every UI change, before `ship`; on a local run, since the preview exists only after `ship` (owner, 2026-10-17: "1. A") — [W10.10.8](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m) | Done, PR #145 |
+| R-6 | 2026-10-16 | The reviewer gets a browser and judges a local run against `DESIGN.md` — [W10.10.4](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m) | Done, PR #146 |
+| R-16 | 2026-11-04 | Skills regression eval, slice 1: a free check of the skills' rule lines and section references, and one command that runs the real skills on one case — [spec](specs/skills-eval.md) | Done, PR #183 |
+| R-7 | 2026-10-16 | M3: the first real app, the pilot web app on v2, with its React stack home decision — [M3](kit/notes/revamp/workstreams/W10-v2.md#m3--the-pilot-web-app-on-cloudflare), [W10.8.3](kit/notes/revamp/workstreams/W10-v2.md#w108-ui-design-baseline--p1--m) | Open |
+| R-17 | 2026-11-04 | Skills regression eval, slice 2: the go-before-spec (F-NEW-91) and feature-interview (F-NEW-78) cases, after a baseline on `main` | Open |
+| R-18 | 2026-11-04 | Skills regression eval, slice 3 (if wanted): a build smoke case and the design-direction slice case (F-NEW-79) | Open |
+| R-8 | 2026-10-16 | M4: the iOS stack and the Mac; retire v1, with the owner's deferred credential and archive steps — [M4](kit/notes/revamp/workstreams/W10-v2.md#m4--coarse-detailed-when-next), [W0.5, W0.6](kit/notes/revamp/workstreams/W0-groundwork.md) | Open |
+| R-9 | 2026-10-16 | After the revamp: the air-gapped adversarial reviewer as a required check — [PLAN.md § After the revamp](kit/notes/revamp/PLAN.md#after-the-revamp) | Open |
+| R-10 | 2026-10-16 | Every repo keeps a roadmap and a findings log — [W10.9.8](kit/notes/revamp/workstreams/W10-v2.md#w109-m1-close-out--p0--s-each), [spec](specs/findings-and-roadmap.md) | Done, PR #125 |
+| R-11 | 2026-10-16 | Devshop releases: Conventional Commit titles, a release button only the owner can press, projects pin release tags — [spec](specs/devshop-releases.md) | Done, PRs #128, #134, #137 (v2.0.0 released) |
+| R-13 | 2026-10-20 | One project contract: what every project must provide, in one file the devshop checks at session start and in `fast`; the duplicates collapsed; the manifest covers what the upgrade claims to re-copy; R-12 is its first entry — [spec](specs/project-contract.md) | Done, PR #151 |
+| R-12 | 2026-10-19 | Projects' PR titles carry a Conventional Commit prefix too, placed by the devshop: a `pr-title-check.py` in the project files, checked in `fast` and by `ship.sh` — [spec](specs/project-contract.md) | Done, PR #151 (the contract's first entry) |
+| R-14 | 2026-10-20 | The session-start hook reads the wrong directory after a restart and runs without the project's pin, silently (F-NEW-77): root cause and fix, before the pilot web app adopts v2 — [W10.11.12](kit/notes/revamp/workstreams/W10-v2.md#w1011-the-first-real-app--p0--l) | Done (W10.11.12) |
+| R-15 | 2026-10-30 | The metrics comment names the model(s) and splits the tokens (input, output, cache reads, cache writes) beside the dollars, and says which window of the session they cover — [spec](specs/metrics-model-and-tokens.md) | Done, PR #169 |
+| R-20 | 2026-11-06 | The runtime's skills load again on Claude Code 2.1.318 and later (F-NEW-147), and the plugin is named `ak`, so they read `ak:intent`, `ak:build` and so on (owner, 2026-11-06: "Yeah, do it with AK and fix them.") — [spec](specs/ak-plugin.md) | Done, PR #187 |
+| R-21 | 2026-11-10 | Pinned tools survive a release-host outage: cached for the session, a sanctioned repair, and a session that can't push says so up front (F-NEW-158, F-NEW-159) | Done, PR #191 |
+| R-22 | 2026-11-10 | Parallel branches stop conflicting on shared lists and counters: lists derived from one manifest, tests that count from it, finding IDs that can't collide (F-NEW-161) | Done, PR #193 |
+| R-23 | 2026-11-10 | Shared changes and flaky-test fixes land first, in their own small PR; a flake seen twice gets that PR, not a re-run (F-NEW-164) | Done, PR #194 |
+| R-24 | 2026-11-11 | The VM lane, slice 1: the host script (`apple-vm.sh start`, `list`, `stop`, `kill-all`, with a time limit, a two-VM cap and free-disk check, never touching `base`), tested with a fake Tart; from inside a VM on the local Mac a scripted attack run fails to read a host path, reach the Mac or the LAN, leave anything for the next task, change `base`, fill the Mac's disk, or exceed its CPU or memory (D-20) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
+| R-27 | 2026-11-11 | The VM lane, slice 2: the egress allowlist proxy, with softnet blocking every address but the proxy's; from inside a VM, reaching a host off the list, bypassing the proxy, IPv6 and DNS all fail | Open |
+| R-28 | 2026-11-11 | The VM lane, slice 3: the base image recipe: a standard `agent` user who can still run UI tests and agent-desktop, an admin password the agent never sees, the tools, a managed settings file, then the one Claude login and a check that a VM session lists no connectors; attacks: sudo, a signing identity, a `.p12` or `.mobileprovision` file, a browser without its sandbox, editing the managed settings | Open |
+| R-29 | 2026-11-11 | The VM lane, slice 4: a session in the VM: the Remote Control attach, how long a VM login lasts, and how `ship.sh` and the reviewer run for it; done when a session ships a PR from a VM | Open |
+| R-25 | 2026-11-11 | The first Apple app in its own private repo, on the VM lane (R-24, R-27 to R-29): the engine first, then the GUI (phases 3 and 4) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
+| R-26 | 2026-11-11 | The pilot web app's iOS app, in the web app's own repo, starting with how that repo is organized to hold both; takes turns with R-25 on the local Mac, neither waits for the other to finish (phase 7, part of R-8) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
+| R-30 | 2026-11-12 | The reviewer stops flagging a commit's attribution trailer for naming another model than its own: a trailer's model or co-author is not a finding, while instructions planted in one still are; its own small PR with the reviewer eval, ahead of R-31 | Open |
+| R-31 | 2026-11-12 | A change that alters behaviour a shipped spec describes amends that spec in its own PR (option A′): the change's spec is the one spec it adds, a rename counts as an edit and a deletion is refused, each edit to a spec already on `main` cites the owner's dated decision, and a change that adds no spec is reviewed on its PR's words, never against an older spec (F-NEW-134) | Open |
+| R-19 | 2026-11-04 | A question the owner skipped is asked again, not filled with a default: the rule in `intent`, its eval case written first (F-NEW-88) | Open |
 
 ## R-14: The session-start hook reads the wrong directory after a restart
 
@@ -47,6 +58,169 @@ instead of the repo and said "no .devshop-version · project user" in a repo tha
 CI-tier, project-files and git-hooks checks were skipped without a word. Root cause unknown: the
 line names the directory it read, the clue to find it. Sightings: 2026-10-15 (website session;
 devshop roadmap session), 2026-10-16 (W10.9.8; R-1), 2026-10-17 (R-3), each after a restart.
+
+## R-21: Pinned tools survive a release-host outage
+
+Asked 2026-11-10, in chat in a devshop session, after Claude ranked the 2026-11-09 findings from a games-site project's 11 parallel sessions and named three as the costly ones: the tool downloads at setup (F-NEW-158 with F-NEW-159), the shared-file conflicts (F-NEW-161) and the flake and shared-change rule (F-NEW-164). The owner's answer covers R-21, R-22 and R-23:
+
+```text
+Would it make sense to fix the three of them on the same PR or different PRs? Regardless, show me the task suggestion. Or I guess on the mobile you cannot do that, so just, you know, just start 1, 2, or 3 sessions that you need to fix those three.
+```
+
+### Claude's notes
+
+The findings, as logged:
+
+- F-NEW-158: The bootstrap downloads its pinned tools from GitHub releases at setup: a lasting outage (a 504) leaves a tool missing for the whole session, and nothing sanctioned repairs it. Without `dcg` the pre-bash hook blocks every Bash command, git included; without `gitleaks` the pre-push hook stops every push (rightly, `--no-verify` is barred), and a session's own reinstall is refused by the permission classifier, so the owner approves it by hand. Seen as `gitleaks` missing in at least five sessions and `dcg` in one. Root cause: a network fetch at setup with no cache; a retry with backoff (4 tries) now covers a brief outage, a mitigation. Candidates: the pinned binaries cached in the environment image or setup script; a checksum-verified repair command; a plain "this session can't push, start a new one" when setup still fails.
+- F-NEW-159: A session whose bootstrap broke can't ship by any path: with Bash blocked it pushed its commit through the GitHub API, then the review guard refused `create_pull_request` because a PR needs `ship.sh`, which needs Bash. A fresh session was started to open one docs PR. Nothing tells the session up front that it can't ship. Same root cause as F-NEW-158; a degraded path (open the PR, let CI and the reviewer run there) or an early "start a new session" are the candidates.
+
+## R-22: Parallel branches stop conflicting on shared files
+
+Asked 2026-11-10, in chat in a devshop session, after Claude ranked the 2026-11-09 findings from a games-site project's 11 parallel sessions and named three as the costly ones: the tool downloads at setup (F-NEW-158 with F-NEW-159), the shared-file conflicts (F-NEW-161) and the flake and shared-change rule (F-NEW-164). The owner's answer covers R-21, R-22 and R-23:
+
+```text
+Would it make sense to fix the three of them on the same PR or different PRs? Regardless, show me the task suggestion. Or I guess on the mobile you cannot do that, so just, you know, just start 1, 2, or 3 sessions that you need to fix those three.
+```
+
+### Claude's notes
+
+The findings, as logged:
+
+- F-NEW-161: Parallel branches of one project conflict with `main` after every merge, always in the same shared files: the landing page's tile list, a site test that hard-codes the tile count (and acceptance tests that assert it, so each new item breaks older tests and leaves older specs' wording stale), the service worker's version and shell list, the README's list line, one append-only decisions log, and FINDINGS.md's sequential IDs (four branches each took the same next ID). Root cause: shared lists and counters edited by hand on every branch. Candidates: one manifest the tiles, shell list and tests derive from; a version from a hash; collision-free finding IDs (date plus slug); a decisions file per item. Hit every branch of the ten.
+
+## R-23: Shared changes and flake fixes land first
+
+Asked 2026-11-10, in chat in a devshop session, after Claude ranked the 2026-11-09 findings from a games-site project's 11 parallel sessions and named three as the costly ones: the tool downloads at setup (F-NEW-158 with F-NEW-159), the shared-file conflicts (F-NEW-161) and the flake and shared-change rule (F-NEW-164). The owner's answer covers R-21, R-22 and R-23:
+
+```text
+Would it make sense to fix the three of them on the same PR or different PRs? Regardless, show me the task suggestion. Or I guess on the mobile you cannot do that, so just, you know, just start 1, 2, or 3 sessions that you need to fix those three.
+```
+
+### Claude's notes
+
+The findings, as logged:
+
+- F-NEW-164: Shared changes and fixes to shared or flaky tests ride inside unrelated feature PRs: a shell prompt every item uses shipped inside one item's PR, so every other branch adapted its tests; a fix for a flaky test (a size measured mid-animation) sat in a branch near the end of the queue while that flake failed CI on at least three other PRs; two more flakes stayed unfixed. No devshop rule says a change to shared code or a shared flake fix goes first in its own small PR, or that a session seeing an unrelated flake twice proposes that PR instead of re-running.
+
+## R-24, R-27, R-28, R-29, R-25, R-26: The VM lane, then the two Apple apps
+
+Asked 2026-11-11, in chat in a devshop session, after PR #166 (D-20) merged, when Claude asked what
+comes next. The two app names are replaced by the descriptions in brackets (the rule on other
+projects); the rest is word for word:
+
+```text
+setting up to startbuilding [the first Apple app] and in parallel do [the pilot web app's] ios? maybe not in parallel at the same time due to RAM but meaning no neeed to finish [the first Apple app] t work on iphone app
+```
+
+Claude proposed R-24 first, as the shared foundation, then R-25 and R-26 as two tracks taking turns
+on the Air. The owner's answers, the same day, to "is this order right?" and "same repo as the web
+app, or its own?":
+
+```text
+1, yes
+
+2. web app repo and should be thought how to organize the repo to do so
+```
+
+### Claude's notes
+
+- The proposal's phase 2 is split across R-24, R-27, R-28 and R-29 (below); its done-when, the
+  attack list there, is shared among them, and R-24 carries the first part. The Air stays on macOS
+  15 (D-20 item 11), so no Xcode plugin in the base image yet.
+- R-25 and R-26 take turns because the Air's memory fits one VM at a time.
+- The devshop's own Apple pieces (the Apple stack home, the CI template's macOS runner) still wait
+  for the pilot web app's adoption, W10.11.6 (D-20 item 10).
+- The Actions spending limit ($20 a month) is set when R-25's private repo starts (D-20).
+
+### The split of the VM lane
+
+Asked 2026-11-11, in chat in a devshop session: Claude proposed splitting R-24 into four slices
+(`ak:split`). The owner's answers, word for word, the same day. To "skip gstack's plan reviews on
+this split, or run them?":
+
+```text
+A
+```
+
+To the split as first proposed:
+
+```text
+Do an adversarial review of this plan.
+```
+
+To the split as revised after that review (the four slices below, in this order, at the top of the
+roadmap ahead of R-25 and R-26), and to "confirm the agent's GitHub account is back in use":
+
+```text
+A
+
+And yes, the GitHub agent account is back in use.
+```
+
+The slices, in order: R-24, R-27, R-28, R-29. R-25 and R-26 build on all four.
+
+### Claude's notes on the slices
+
+The owner approved the split's shape and order; the detail of each slice below, and in its row
+(the guards, the attack lists), is Claude's proposal, which each slice's spec and go settle.
+
+- **R-24, the host script and the first attacks.** No daemon on the Mac: each `apple-vm.sh`
+  command deletes task VMs past their time limit, after a warning. The script refuses a third VM,
+  a name already taken and any action on `base`; `base` is pinned by digest; the Tart folder is an
+  argument, not each Terminal's exports. The attacks are a script in this repo that the Mac runs
+  into the VM and that writes a report on the Mac; the PR carries it, and a known-bad run (the same
+  script on a VM without softnet) that must report failures. Where the script lives is settled in
+  its spec. No token or login goes into a VM in this slice.
+- **R-27, the proxy.** Before any credential is in a VM, because without softnet's block an agent
+  can simply skip the proxy. Tart 2.34.0 has `--net-softnet-block` and `--net-softnet-allow`, and
+  softnet 0.21.1 accepts `--block=0.0.0.0/0` with exceptions (read from their source at those
+  tags). Open: IPv6 and DNS, and where the proxy runs, since Apple's `container` likely needs
+  macOS 26 (a small Linux VM under Tart is the fallback). The first list: GitHub, Anthropic and
+  Remote Control's hosts; model hosts come with phase 3.
+- **R-28, the base image.** The login is the recipe's last step, run by the owner with the
+  clipboard on for that step only, and the no-connectors check runs before any session. Its
+  known-bad case is a session with a connector attached. D-20 item 5's gate is met (the owner's
+  confirmation above). Apple's Xcode plugin is not in it (D-20 item 11).
+- **R-29, a session in the VM.** Attaching a cloud session to a VM folder isn't offered on the
+  owner's account, so the VM session has no cloud container beside it; its spec settles how
+  `ship.sh` and the reviewer, whose browser stays out of the VM, run for it.
+
+## R-30, R-31: Amending a shipped spec, and the reviewer's attribution finding
+
+Asked 2026-11-12, in chat in a devshop session, about a games-site project's change whose acceptance item asked to update the game's older, shipped spec: the review stopped (two spec files), the update went to a follow-up docs PR, and that PR was reviewed against the very spec it edited. The owner's question, then their answer after Claude proposed options, an adversarial review of them, and a comparison of five (A′, a follow-up PR, frozen specs with overrides in words, a living rules doc beside frozen specs, no change). The answer covers R-30 and R-31:
+
+```text
+It sounds weird, like, if we modify the spec of something that already exists, but we currently have a spec on the session. I don't know what's the best way to do it. Maybe the dev shop, I'm not sure if the dev shop should allow you to modify the previous spec that you want to modify, or maybe the dev shop should tell you, like, okay, if you want to do this, I'll show you a task suggestion and do it in a separate session. I don't know. I think this needs to be discussed.
+```
+
+```text
+A'
+```
+
+### Claude's notes
+
+- **R-30 first**, as a shared change in its own small PR: the reviewer runs on one fixed model
+  (`review.sh`'s `MODEL`) and can't know the builder's, so it took a commit's `Co-Authored-By`
+  trailer, which matched the builder session's attribution instructions, for the wrong model. Seen
+  in that games-site session and, per the adversarial review, in PR #154's lows. A prompt change:
+  it needs the reviewer eval.
+- **R-31, what A′ covers:** `review.sh`'s spec rule (the change's spec is the `specs/**.md` it
+  adds, absent at base; a rename of an existing spec is an edit of it; a deleted spec is
+  could-not-run; none added: the PR's words); the reviewer is given each edit to a spec on the base
+  and checks it cites a dated owner decision recorded in that spec (the rule PR #154 followed);
+  `spec-check.py` accepts a qualified `<spec> AC-<n>` naming another spec's item; `ak:intent` § 3
+  proposes the amendment before the go, and § 4's adversarial helper searches `specs/` for shipped
+  items the change contradicts; the spec template's comment. A reviewer change, with the eval.
+- **It replaces a decision:** `specs/parallel-safe-shared-files.md` (owner, 2026-11-10) kept the
+  older spec "as it was, as the record"; under A′ it stays the record of what the owner approved,
+  with dated amendments in the same file.
+- **Why not frozen specs:** every project's `fast` tier runs `spec-check.py --tests` over all its
+  specs, so a frozen item whose behaviour changed must keep a test named for it that asserts what
+  its text denies; and a future session reading the older spec is misled.
+- **The finding, as logged (F-NEW-134, med, now 3 sightings):** `review.sh` takes any
+  `specs/**.md` the change touches as its spec, with nothing to tell a shipped spec from this
+  change's. Seen in the F-NEW-132 fix (could-not-run twice, shipped with its note taken out), R-22
+  (a superseded-by note, could-not-run) and the games-site change above.
 
 ## R-17: Skills regression eval, slice 2
 
