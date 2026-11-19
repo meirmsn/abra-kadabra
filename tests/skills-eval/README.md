@@ -56,11 +56,14 @@ The rules a case shows followed, with the case's latest pass rate; every other r
 
 | Skill  | Rule                                                   | Case      | Followed            |
 | ------ | ------------------------------------------------------ | --------- | ------------------- |
-| intent | "Every request starts here": `ak:intent` loaded first  | `trigger` | 3 of 3 (2026-11-07) |
-| intent | § 3, "nothing is built before the "go""                | `trigger` | 3 of 3 (2026-11-07) |
-| intent | § 3, run `spec-check.py` on the spec "until it passes" | `trigger` | 3 of 3 (2026-11-07) |
+| intent | "Every request starts here": `ak:intent` loaded first  | `trigger` | 3 of 3 (2026-11-19) |
+| intent | § 3, "nothing is built before the "go""                | `trigger` | 3 of 3 (2026-11-19) |
+| intent | § 3, run `spec-check.py` on the spec "until it passes" | `trigger` | 3 of 3 (2026-11-19) |
 
 ## Runs
+
+**2026-11-19, this branch with `main` merged in** (`bfe37a4f24e2`), Claude Code 2.1.327, installed
+the same way: 3 × `trigger`, 3 PASS, 76–81 s each, 0 refused calls, $1.65.
 
 **2026-11-07, on the fix** (`specs/ak-plugin.md`): the merge of `main` into this branch,
 `6c4956e6cad1`, Claude Code 2.1.319, permission mode `auto`. The `ak` plugin was installed as
