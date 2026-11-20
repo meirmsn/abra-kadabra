@@ -106,7 +106,7 @@ synchronize, reopened and closed, and on `workflow_dispatch` with a PR number to
 `WRANGLER_CONFIG`, `DEPLOY_NAME=website-pr-<n>` and `SMOKE_TRIES=20` (a new Worker's route takes
 about two minutes to reach every edge), so a preview also records the version it replaces.
 `scripts/preview-comment.mjs` keeps one PR comment with the preview's URL, updated on every push,
-and `pr-body-check.py` accepts that comment as the PR's **Preview** line. On close,
+and the PR's **Preview** line points at it as `see the preview comment on this PR`. On close,
 `preview.sh delete <pr>` deletes the Worker through the API (`DELETE …/workers/scripts/<name>?force=true`,
 the token passed on stdin, never as an argument): `wrangler delete` also reads KV namespaces, a
 permission the preview token doesn't have and shouldn't need (fixture PR 4). The cleanup job checks

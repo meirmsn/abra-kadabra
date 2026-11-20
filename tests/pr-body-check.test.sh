@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tests runtime/scripts/pr-body-check.py, the shape check for the PR body template
 # (runtime/templates/pr-body.md, TARGET § L3 Review): a filled-in body passes; the unfilled template,
-# a summary that isn't one short line, a missing or unlinked preview, sections missing or out of
+# a summary that isn't one short line, a missing or misshapen preview, sections missing or out of
 # order, details not collapsed, evidence linked by branch and an over-long title all fail. Since
 # W10.6.9d: a missing or misshapen summary paragraph, an announcement in developer words, screenshots
 # left off the PR and images on raw.githubusercontent.com (404 for a private repo's viewers) fail too.
@@ -40,7 +40,7 @@ Shoppers can save a cart and come back to it on another device.
 A signed-in shopper's cart now follows them to any device, instead of living in one browser. It matters
 because most carts are started on a phone and finished on a laptop.
 
-**Preview:** [the deploy comment on this PR](https://github.com/acme/shop/pull/12#issuecomment-1)
+**Preview:** see the preview comment on this PR
 
 ## Announcement
 
@@ -134,8 +134,26 @@ check "screenshots kept off the PR fail" 1 "$(variant shots-in-chat \
 check "an image on raw.githubusercontent.com fails, even pinned" 1 "$(variant raw-host \
   "s = s.replace('https://github.com/acme/shop/raw/$sha', 'https://raw.githubusercontent.com/acme/shop/$sha')")" "raw.githubusercontent.com"
 check "a missing preview fails" 1 "$(variant no-preview 's = re.sub(r"\*\*Preview:\*\*.*\n", "", s)')" "no **Preview:** line"
-check "a preview without a link or a reason fails" 1 "$(variant bare-preview \
-  's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** see the bot", s)')" "**Preview:** needs a link"
+# The preview comment is posted after the PR opens, so the line points at it in fixed words and
+# never links it: a link can't exist on the first ship, and any link passing let others stand in.
+check "a preview pointing at the comment, with a full stop, passes" 0 "$(variant preview-stop \
+  's = s.replace("see the preview comment on this PR", "see the preview comment on this PR.")')"
+check "a preview without the fixed words or a reason fails" 1 "$(variant bare-preview \
+  's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** see the bot", s)')" "**Preview:** must be"
+check "a preview linking the deploy comment fails" 1 "$(variant preview-link \
+  's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** [the deploy comment on this PR](https://github.com/acme/shop/pull/12#issuecomment-1)", s)')" "**Preview:** must be"
+check "a preview linking the branch preview fails" 1 "$(variant preview-branch-link \
+  's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** [the preview](https://feature-cart.shop.example.com)", s)')" "**Preview:** must be"
+check "a bare preview URL fails" 1 "$(variant preview-bare-url \
+  's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** https://feature-cart.shop.example.com", s)')" "**Preview:** must be"
+check "the fixed words with more after them fail" 1 "$(variant preview-extra \
+  's = s.replace("see the preview comment on this PR", "see the preview comment on this PR, or https://shop.example.com")')" "**Preview:** must be"
+check "trailing spaces after the fixed words pass" 0 "$(variant preview-spaces \
+  's = s.replace("see the preview comment on this PR", "see the preview comment on this PR  ")')"
+check "a none with no reason fails" 1 "$(variant preview-none-empty \
+  's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** none —", s)')" "**Preview:** must be"
+check "a none without a dash fails, and the error shows the dash" 1 "$(variant preview-none-yet \
+  's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** none yet: the PR is new", s)')" "none — <reason>"
 check "a preview below the sections fails" 1 "$(variant late-preview \
   's = re.sub(r"\*\*Preview:\*\*.*\n", "", s).replace("- **Low findings:** none", "- **Low findings:** none\n\n**Preview:** none — docs only")')" "must come before the first section"
 check "evidence before what you should know fails" 1 "$(variant order \
