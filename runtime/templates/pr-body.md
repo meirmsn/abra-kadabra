@@ -2,7 +2,7 @@
 
 {{Two or three sentences, one paragraph: what changed and why it matters, in the same plain words}}
 
-**Preview:** {{a link to the deploy platform's own comment on this PR, which updates itself on every push; or "none — native: simulator screenshots under Evidence"; or "none — <why there is nothing to preview>"}}
+**Preview:** {{"see the preview comment on this PR" when the project deploys a preview per PR (the comment is posted after the PR opens and updates itself on every push, so never link it); or "none — native: simulator screenshots under Evidence"; or "none — <why there is nothing to preview>"}}
 
 <!--
 PR body template (TARGET § L3 Review). Top-down, so the owner can stop reading at any level and

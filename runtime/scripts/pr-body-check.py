@@ -6,7 +6,10 @@ Checks the shape only; the words are the reviewer's and the owner's to judge (W1
 counting, no word list).
   - title (if given): one line, 72 characters at most
   - first line: a one-line summary (plain text, at most 120 characters, then a blank line)
-  - a **Preview:** line before the first section, holding a link or "none — <reason>"
+  - a **Preview:** line before the first section, holding exactly "see the preview comment on this
+    PR" or "none — <reason>"; never a link, in the reason either: the preview comment is posted
+    after the PR opens, so the first ship can't link it, and a link check can't tell that comment
+    from any other URL
   - sections, in order: ## Announcement (optional), ## What you should know, ## Evidence, none
     other, none empty; each holds its labelled lines (see REQUIRED)
   - **Screenshots:** holds at least one image, or says "no UI change"
@@ -37,7 +40,8 @@ CODE = re.compile(r"^ {0,3}(`{3,}|~{3,}).*?^ {0,3}\1|(`+)[^`\n](?:(?!\n[ \t]*\n)
 HEADING = re.compile(r"^ {0,3}(#{1,2})\s+(.*?)\s*#*\s*$", re.M)
 DETAILS = re.compile(r"<details>\s*<summary>\s*Engineering details\s*</summary>(.*?)</details>", re.S | re.I)
 PREVIEW = re.compile(r"^\*\*Preview:\*\*\s*(.*)$", re.M)
-LINK = re.compile(r"\[[^\]]+\]\(https?://[^)\s]+\)")
+PREVIEW_OK = re.compile(r"see the preview comment on this PR\.?|none\s+[—–-]\s*\S.*")
+URL = re.compile(r"https?://", re.I)  # a link in a none reason is still a link
 IMAGE = re.compile(r"!\[[^\]]*\]\(\s*<?([^)\s>]+)|<img\s[^>]*src=[\"']([^\"']+)", re.I)
 GITHUB_FILE = re.compile(
     r"https?://(?:github\.com/[^/\s]+/[^/\s]+/(?:blob|raw)|raw\.githubusercontent\.com/[^/\s]+/[^/\s]+)/([^/\s)]+)/")
@@ -90,8 +94,9 @@ def check(body, title):
         problems.append("no **Preview:** line")
     elif preview[0].start() > top:
         problems.append("the **Preview:** line must come before the first section")
-    elif not (LINK.search(preview[0].group(1)) or re.match(r"none\s+[—–-]\s*\S", preview[0].group(1))):
-        problems.append("**Preview:** needs a link (the deploy platform's PR comment) or 'none — <reason>'")
+    elif not PREVIEW_OK.fullmatch(preview[0].group(1).strip()) or URL.search(preview[0].group(1)):
+        problems.append("**Preview:** must be 'see the preview comment on this PR' or 'none — <reason>', "
+                        "with no link: the preview comment doesn't exist until the PR does")
 
     names = [h[1] for h in headings]
     for level, name, *_ in headings:
