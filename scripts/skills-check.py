@@ -14,6 +14,10 @@ For every RUNTIME_DIR/skills/<name>/SKILL.md and DIR/<name>/SKILL.md:
   - every `ak:<skill>` it hands over to is one of these skills (the plugin, ak, lists them so), and
     none hands over by the plugin's old name, `devshop:<skill>`, which no session lists
   - no plugin skill shares its name with a runtime skill
+  - every section reference resolves (specs/skills-eval.md): `ak:<x>` § N, `<x>` § N and
+    `<x>`, step N name a "## N." heading of skill <x>; a bare "§ N" or "step N" one of its own;
+    `/opt/devshop-current/<file>` § <Heading> a heading of that file the text after the § starts
+    with (its "(…)" tail ignored). Others (TARGET, specs) aren't in the runtime and aren't checked
 All the descriptions together stay within MAX_DESCRIPTION_WORDS: they are loaded into every
 session, the devshop's share of the always-loaded budget (TARGET Shape 2, W10.6.16, W10.6.18).
 Exit 0 = every skill has the shape (warnings, if any, listed); 1 = problems (listed); 2 = can't run (no runtime, no skills, a
@@ -29,6 +33,43 @@ PINNED = re.compile(r"/opt/devshop-current/([A-Za-z0-9._/-]*[A-Za-z0-9_/-])")
 PLUGIN_NAME = "ak"
 HANDOVER = re.compile(r"\bak:([a-z][a-z0-9-]*)")
 OLD_HANDOVER = re.compile(r"\bdevshop:([a-z][a-z0-9-]*)")
+# Section references, matched on the text with its whitespace folded (a reference can wrap).
+NAMED_REF = re.compile(r"`(ak:)?([a-z][a-z0-9-]*)`(,)? (§|step) (\d+)")
+FILE_REF = re.compile(r"`/opt/devshop-current/([^`\s]+)` § ([^.;:,)`]+)")
+OWN_REF = re.compile(r"(?:§|\bstep) (\d+)")
+DOC_BEFORE = re.compile(r"^\(?`?(TARGET|\S+\.md)`?$")
+SECTION = re.compile(r"^## (\d+)\.", re.M)
+HEADINGS = re.compile(r"^#{1,6} +(.*?) *$", re.M)
+
+
+def fold(text):
+    return " ".join(text.split())
+
+
+def references(name, text, runtime, sections):
+    """Problems with the section references in a skill's text; sections maps a skill to its numbers."""
+    problems, flat = [], fold(text)
+    for m in NAMED_REF.finditer(flat):
+        target, number = m.group(2), m.group(5)
+        if target in sections and number not in sections[target]:
+            problems.append(f"{name}: names {m.group(0)}, which {target} doesn't have (no '## {number}.' heading)")
+    for m in FILE_REF.finditer(flat):
+        rel, rest = m.group(1), m.group(2).strip()
+        path = os.path.join(runtime, rel)
+        if not os.path.isfile(path):
+            continue  # the path check reports a missing file
+        with open(path, encoding="utf-8") as f:
+            heads = [re.sub(r" *\(.*$", "", h).strip() for h in HEADINGS.findall(f.read())]
+        if not any(h and rest.startswith(h) for h in heads):
+            problems.append(f"{name}: names /opt/devshop-current/{rel} § {rest}, which has no such heading")
+    rest = FILE_REF.sub(" ", NAMED_REF.sub(" ", flat))
+    for m in OWN_REF.finditer(rest):
+        before = rest[:m.start()].split()
+        if before and DOC_BEFORE.search(before[-1]):
+            continue  # "TARGET § 5", "specs/x.md § 3", "`README.md` step 2": another document's
+        if m.group(1) not in sections[name]:
+            problems.append(f"{name}: names {m.group(0)}, which it doesn't have (no '## {m.group(1)}.' heading)")
+    return problems
 
 
 def check(path, name, runtime, names):
@@ -94,6 +135,7 @@ def main(argv):
     problems, warnings, description_words = [], [], 0
     for name in sorted({n for n in every if every.count(n) > 1}):
         problems.append(f"{name}: a plugin skill shares its name with a runtime skill")
+    texts = {}
     for base, ns in sets:
         for name in ns:
             path = os.path.join(base, name, "SKILL.md")
@@ -104,6 +146,11 @@ def main(argv):
             problems += found
             warnings += warned
             description_words += words
+            with open(path, encoding="utf-8") as f:
+                texts[name] = f.read()
+    sections = {n: set(SECTION.findall(x)) for n, x in texts.items()}
+    for name, text in texts.items():
+        problems += references(name, text, runtime, sections)
     if description_words > MAX_DESCRIPTION_WORDS:
         problems.append(f"descriptions: {description_words} words, the always-loaded budget is {MAX_DESCRIPTION_WORDS}")
     for w in warnings:

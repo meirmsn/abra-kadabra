@@ -108,6 +108,50 @@ mkdir -p "$work/empty"
 check "a runtime with no skills can't run" 2 "$work/empty" "no skills"
 check "a missing runtime can't run" 2 "$work/nope"
 
+# Section references (specs/skills-eval.md): an edit that renumbers a section, or drops a heading
+# another skill points at, fails here, for free.
+# pair_rt <name> <demo SKILL.md body> [<other SKILL.md body>]: a runtime with skills demo and other
+# and a guideline with two headings; echo its path.
+pair_rt() {
+  local d="$work/$1"
+  mkdir -p "$d/skills/demo" "$d/skills/other" "$d/guidelines"
+  printf -- '---\nname: demo\ndescription: A demo skill.\n---\n\n## 1. One\n\n%s\n' "$2" >"$d/skills/demo/SKILL.md"
+  printf -- '---\nname: other\ndescription: Another skill.\n---\n\n## 1. First\n\n## 2. Second\n\n%s\n' "${3:-Text.}" >"$d/skills/other/SKILL.md"
+  # shellcheck disable=SC2016 # literal backticks: the guideline's Markdown
+  printf '# Guide\n\n## Design review (before `ship`)\n\n## Design direction (once per product)\n' >"$d/guidelines/ui.md"
+  echo "$d"
+}
+# shellcheck disable=SC2016 # literal backticks: the skills' Markdown
+{
+check "skills-eval AC-1: a reference to another skill's section that exists passes" 0 \
+  "$(pair_rt ref-ok 'Build it under `ak:other` § 2, as `other`, step 1 says, then `other` § 1.')"
+check "skills-eval AC-1: a reference to a section another skill lacks fails" 1 \
+  "$(pair_rt ref-gone 'Build it under `ak:other` § 3.')" "ak:other\` § 3"
+check "skills-eval AC-1: a step another skill lacks fails" 1 \
+  "$(pair_rt step-gone 'Raise it with the owner (`other`, step 5).')" "step 5"
+check "skills-eval AC-1: an ak: step another skill lacks fails, not read as the skill's own" 1 \
+  "$(pair_rt dstep-gone 'Record it as `ak:other` step 4 says. Then under § 1.')" "ak:other\` step 4"
+check "skills-eval AC-1: a reference across a line break is read whole" 1 \
+  "$(pair_rt ref-wrap 'Build it under `ak:other`
+§ 4.')" "§ 4"
+check "skills-eval AC-2: a bare reference to the skill's own section passes" 0 \
+  "$(pair_rt own-ok 'A later round is built here under § 1, from step 1.')"
+check "skills-eval AC-2: a bare § to a section the skill lacks fails" 1 \
+  "$(pair_rt own-gone 'A later round is built here under § 4.')" "demo: names § 4"
+check "skills-eval AC-2: a bare § after an upper-case word is still the skill's own" 1 \
+  "$(pair_rt caps-gone 'NOTE § 4 has it.')" "demo: names § 4"
+check "skills-eval AC-2: a bare step the skill lacks fails" 1 \
+  "$(pair_rt own-step 'Carry on from step 3.')" "step 3"
+check "skills-eval AC-2: a TARGET reference is not checked" 0 \
+  "$(pair_rt target 'Every request starts here (TARGET § L3 Intent 8).')"
+check "skills-eval AC-2: another document's numbered section is not the skill's own" 0 \
+  "$(pair_rt docref 'As TARGET § 5 says, and `specs/cart.md` § 7, and README.md step 9.')"
+check "skills-eval AC-3: a guideline heading that exists passes" 0 \
+  "$(pair_rt file-ok 'Run it as `/opt/devshop-current/guidelines/ui.md` § Design review says, or § Design direction there.')"
+check "skills-eval AC-3: a guideline heading that doesn't exist fails" 1 \
+  "$(pair_rt file-gone 'Run it as `/opt/devshop-current/guidelines/ui.md` § Design audit says.')" "Design audit"
+}
+
 # The real runtime: every skill passes, and the v2 skills are there.
 for s in intent build pr devshop-version; do
   [ -f "$repo_root/runtime/skills/$s/SKILL.md" ] || fail "runtime/skills/$s/SKILL.md is missing"
@@ -121,6 +165,7 @@ plugin_skills="$repo_root/install/plugin/devshop/upgrade/skills"
 [ -f "$plugin_skills/upgrade/SKILL.md" ] || fail "install/plugin/devshop/upgrade/skills/upgrade/SKILL.md is missing"
 grep -qx "name: upgrade" "$plugin_skills/upgrade/SKILL.md" || fail "the plugin's upgrade skill isn't named 'upgrade' (/ak:upgrade)"
 PLUGIN=$plugin_skills check "the real runtime's and plugin's skills together (upgrade)" 0 "$repo_root/runtime"
+PLUGIN=$plugin_skills check "skills-eval AC-4: the real skills' section references resolve" 0 "$repo_root/runtime"
 [ ! -e "$plugin_skills/devshop-upgrade" ] || fail "the plugin still has devshop-upgrade (renamed upgrade)"
 [ ! -e "$repo_root/runtime/skills/upgrade" ] || fail "runtime/skills/upgrade would clash with the plugin's upgrade skill"
 echo "ok - the plugin's skill is upgrade (/ak:upgrade), and no runtime skill shares its name"
