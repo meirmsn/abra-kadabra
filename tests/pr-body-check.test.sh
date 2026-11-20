@@ -147,11 +147,15 @@ check "a preview linking the branch preview fails" 1 "$(variant preview-branch-l
 check "a bare preview URL fails" 1 "$(variant preview-bare-url \
   's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** https://feature-cart.shop.example.com", s)')" "**Preview:** must be"
 check "the fixed words with more after them fail" 1 "$(variant preview-extra \
-  's = s.replace("see the preview comment on this PR", "see the preview comment on this PR, or https://shop.example.com")')" "**Preview:** must be"
+  's = s.replace("see the preview comment on this PR", "see the preview comment on this PR, and the bot one")')" "**Preview:** must be"
 check "trailing spaces after the fixed words pass" 0 "$(variant preview-spaces \
   's = s.replace("see the preview comment on this PR", "see the preview comment on this PR  ")')"
 check "a none with no reason fails" 1 "$(variant preview-none-empty \
   's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** none —", s)')" "**Preview:** must be"
+check "a link inside the none reason fails" 1 "$(variant preview-none-url \
+  's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** none — see https://feature-cart.shop.example.com", s)')" "**Preview:** must be"
+check "a markdown link inside the none reason fails" 1 "$(variant preview-none-link \
+  's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** none — [the branch](http://feature-cart.shop.example.com)", s)')" "**Preview:** must be"
 check "a none without a dash fails, and the error shows the dash" 1 "$(variant preview-none-yet \
   's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** none yet: the PR is new", s)')" "none — <reason>"
 check "a preview below the sections fails" 1 "$(variant late-preview \
