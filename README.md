@@ -1,8 +1,35 @@
+<a id="readme-top"></a>
+
+<div align="center">
+
+<img src="docs/images/social-preview.png" alt="abra-kadabra" width="720">
+
 # Abra-Kadabra
 
-> **Status: Work in progress**
+**A running prototype of a dev shop run by Claude Code agents.**
 
-![Abra-Kadabra: a running prototype of a dev shop run by Claude Code agents](docs/images/social-preview.png)
+[Approach](#approach) · [How it works](#how-it-works) · [Run it](#run-it) · [Build log](#build-log) · [Feedback](#feedback)
+
+![Status: work in progress](https://img.shields.io/badge/status-work_in_progress-orange)
+![Last commit](https://img.shields.io/github/last-commit/meirmsn/abra-kadabra)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+</div>
+
+<details>
+<summary>Contents</summary>
+
+- [Approach](#approach)
+- [What it does](#what-it-does)
+- [How it works](#how-it-works)
+- [Learnings so far](#learnings-so-far)
+- [Build log](#build-log)
+- [Known limitations](#known-limitations)
+- [Run it](#run-it)
+- [Feedback](#feedback)
+- [License](#license)
+
+</details>
 
 **Describe the app you want. Get one built to be slick, reliable and secure, with you in control at
 every step.**
@@ -40,6 +67,8 @@ the base case, the manual start the automated version is bootstrapped from. From
 refinement of the devshop comes out of running it: the automated loop builds, I steer where it falls
 short, and the correction goes into the next version, the way a rough tool is used to make a finer
 one.
+
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## What it does
 
@@ -88,6 +117,8 @@ can do.
 **The walls.** The other half of the devshop is what the agent can never do (push to `main`, merge
 without you, hold a production secret), so that trusting a change means **reading its PR, not
 auditing the agent**.
+
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## How it works
 
@@ -270,6 +301,8 @@ A new devshop version is released from a button only I press; CI names it from t
 and tags it. Versions are SemVer; a breaking change is a major version, whose upgrade PR is meant to
 carry the migration, done by the agent.
 
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
+
 ## Learnings so far
 
 - **No boundary inside the session.** Nothing inside the agent's session is a real boundary: a
@@ -293,7 +326,12 @@ carry the migration, done by the agent.
   by hand, and so runs a little faster, like a flywheel. At some point the machine runs by itself,
   and it feels like magic.
 
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
+
 ## Build log
+
+<details>
+<summary>Show all 12 entries</summary>
 
 - **2026-04-10** · Seeded from lalista's own tooling (v0.2.0); v1.0.0 two days later.
 - **2026-04 to 2026-06** · v1: a devcontainer with a firewall, hooks and a 19-gate pipeline, used
@@ -314,6 +352,10 @@ carry the migration, done by the agent.
 - **2026-10-20** · M2 met: my website runs a plain change through v2 (Lighthouse
   99/100/100/100); one project contract; lalista's move to Cloudflare decided.
 - **2026-10-21** · lalista builds and runs locally on Workers; the last commit before this README.
+
+</details>
+
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
 
 ## Known limitations
 
@@ -337,6 +379,8 @@ carry the migration, done by the agent.
   compatibility promise. If any of this is a problem you face, the Feedback section below is where
   to say so.
 
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
+
 ## Run it
 
 - **To use it** you need a GitHub repository you administer, a Claude Code cloud environment and a
@@ -349,10 +393,16 @@ carry the migration, done by the agent.
 - **To test it:** `npm ci`, then `tests/run.sh` (it needs gitleaks, shellcheck and dcg at the
   versions pinned in `.github/workflows/ci.yml`).
 
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
+
 ## Feedback
 
 Suggestions and critiques welcome — open an issue or a discussion.
 
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
+
 ## License
 
 MIT
+
+<p align="right"><small><a href="#readme-top">back to top</a></small></p>
