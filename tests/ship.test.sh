@@ -317,8 +317,9 @@ grep -qx -- "--base origin/release --pr .*" "$work/stub/calls" || fail "the open
 [ "$(ls "$work/gh/prs")" = 9.json ] || fail "a second PR was created"
 [ "$(comments 9)" = 1 ] && [ "$(jq -r .commit <<<"$(marker 9)")" = "$(head_sha)" ] || fail "no verdict for the new head on PR 9"
 # An unchanged base is not sent: re-sending it makes GitHub start every pull_request workflow again.
-[ "$(wc -l <"$work/gh/patches")" = 1 ] && jq -e 'has("base") | not' "$work/gh/patches" >/dev/null \
-  || fail "the update re-sent the unchanged base: $(cat "$work/gh/patches")"
+if [ "$(wc -l <"$work/gh/patches")" != 1 ] || ! jq -e 'has("base") | not' "$work/gh/patches" >/dev/null; then
+  fail "the update re-sent the unchanged base: $(cat "$work/gh/patches")"
+fi
 ok "on an open PR: its base, the push and the new words go up together, with the verdict for the new head"
 reset_state pass; git -C "$work/p" push -q origin feat/x
 jq -n --arg s "$(head_sha)" '{number: 9, state: "open", title: "Old", body: "b", head: {ref: "feat/x", sha: $s}, base: {ref: "main"}, html_url: "u"}' >"$work/gh/prs/9.json"
