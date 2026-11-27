@@ -3,9 +3,9 @@
 # template's shape (pr-body-check.py, F-NEW-52), and the title pass the repo's own
 # scripts/pr-title-check.py if it has one. Then it reviews the committed HEAD with exactly the
 # given title and body, locally (review.sh, beside this file); only a pass goes on: it pushes the
-# branch, creates the PR (or updates the open PR's title, body and base) with exactly those words,
-# checks GitHub kept them (text it appends to the body is fine), and posts the verdict comment. Code and
-# words go up together. Contract: kit/notes/revamp/workstreams/W10-v2.md § W10.6.7.
+# branch, creates the PR (or updates the open PR's title and body, and its base only when --base
+# changes it) with exactly those words, checks GitHub kept them (text it appends to the body is
+# fine), and posts the verdict comment. Code and words go up together. Contract: kit/notes/revamp/workstreams/W10-v2.md § W10.6.7.
 #   usage: ship.sh --title <text> --body-file <file> [--base <branch>]   (from the worktree root)
 # Exit 0 = shipped (last line "SHIPPED: PR #<n> · <url> · <commit12>"); 1 = the words don't have the
 # template's shape or the repo's title rule, or the review failed: nothing pushed, fix, commit, ship again; 3 = ask-owner; 2 = could-not-run (bad input, a result
@@ -74,8 +74,9 @@ q=$(jq -rn --arg h "${slug%%/*}:$branch" '$h | @uri')
 { prs=$(gh api "repos/$slug/pulls?head=$q&state=open") && jq -e 'type == "array"' <<<"$prs" >/dev/null; } \
   || cnr "can't look up the open PR for $branch (gh failed)"
 number=$(jq -r '.[0].number // empty' <<<"$prs")
+pr_base=$(jq -r '.[0].base.ref // empty' <<<"$prs")
 if [ -z "$base" ]; then
-  base=$(jq -r '.[0].base.ref // empty' <<<"$prs")
+  base=$pr_base
   [ -n "$base" ] || base=$(git symbolic-ref --short -q refs/remotes/origin/HEAD | sed 's#^origin/##')
   [ -n "$base" ] || base=$(gh api "repos/$slug" 2>/dev/null | jq -r '.default_branch // empty') || true
   [ -n "$base" ] || cnr "can't tell the base branch; pass --base"
@@ -108,12 +109,15 @@ fi
 
 # --- A pass: push, then the PR's words, then the verdict.
 git push -q -u origin "HEAD:refs/heads/$branch" || cnr "the review passed, but git push failed; nothing else was done"
-fields=$(jq -n --arg t "$title" --arg b "$body" --arg base "$base" '{title: $t, body: $b, base: $base}')
+fields=$(jq -n --arg t "$title" --arg b "$body" '{title: $t, body: $b}')
 if [ -n "$number" ]; then
+  # The base only when it changes: re-sending an unchanged one makes GitHub start every
+  # pull_request workflow a second time for the push just made.
+  [ "$base" = "$pr_base" ] || fields=$(jq --arg base "$base" '. + {base: $base}' <<<"$fields")
   pr=$(gh api -X PATCH "repos/$slug/pulls/$number" --input - <<<"$fields") \
     || cnr "pushed $branch, but updating PR #$number's words failed; the verdict was not posted"
 else
-  pr=$(gh api -X POST "repos/$slug/pulls" --input - <<<"$(jq --arg h "$branch" '. + {head: $h}' <<<"$fields")") \
+  pr=$(gh api -X POST "repos/$slug/pulls" --input - <<<"$(jq --arg h "$branch" --arg base "$base" '. + {head: $h, base: $base}' <<<"$fields")") \
     || cnr "pushed $branch, but creating the PR failed; the verdict was not posted"
   number=$(jq -r .number <<<"$pr")
   created=1
