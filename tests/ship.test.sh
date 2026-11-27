@@ -104,6 +104,7 @@ case "$method $path" in
     cat "$GH_DIR/prs/$n.json" ;;
   "PATCH repos/example/app/pulls/"*)
     [ ! -f "$GH_DIR/fail-patch" ] || { echo "HTTP 502: bad gateway" >&2; exit 1; }
+    jq -c . <<<"$input" >>"$GH_DIR/patches"
     f="$GH_DIR/prs/${path##*/}.json"
     sha=$(git --git-dir="$ORIGIN" rev-parse "refs/heads/$(jq -r .head.ref "$f")")
     jq --argjson in "$input" --arg s "$sha" --arg f "$(foot patch)" '. + ($in | {title, body, base: (if .base then {ref: .base} else null end)} | with_entries(select(.value != null)))
@@ -315,11 +316,15 @@ grep -qx -- "--base origin/release --pr .*" "$work/stub/calls" || fail "the open
   || fail "the open PR's words were not updated: $(cat "$work/gh/prs/9.json")"
 [ "$(ls "$work/gh/prs")" = 9.json ] || fail "a second PR was created"
 [ "$(comments 9)" = 1 ] && [ "$(jq -r .commit <<<"$(marker 9)")" = "$(head_sha)" ] || fail "no verdict for the new head on PR 9"
+# An unchanged base is not sent: re-sending it makes GitHub start every pull_request workflow again.
+[ "$(wc -l <"$work/gh/patches")" = 1 ] && jq -e 'has("base") | not' "$work/gh/patches" >/dev/null \
+  || fail "the update re-sent the unchanged base: $(cat "$work/gh/patches")"
 ok "on an open PR: its base, the push and the new words go up together, with the verdict for the new head"
 reset_state pass; git -C "$work/p" push -q origin feat/x
 jq -n --arg s "$(head_sha)" '{number: 9, state: "open", title: "Old", body: "b", head: {ref: "feat/x", sha: $s}, base: {ref: "main"}, html_url: "u"}' >"$work/gh/prs/9.json"
 run_ship --title x --body-file "$work/body.md" --base release; want_rc 0 "ship with --base"
 grep -qx -- "--base origin/release --pr .*" "$work/stub/calls" && [ "$(jq -r .base.ref "$work/gh/prs/9.json")" = release ] || fail "--base not applied"
+jq -e '.base == "release"' "$work/gh/patches" >/dev/null || fail "a changed base was not sent: $(cat "$work/gh/patches")"
 ok "--base overrides the PR's base, and the PR's base is changed to it"
 
 # --- 6. What GitHub does to the words after ship sets them: anything it appends is left alone (it
