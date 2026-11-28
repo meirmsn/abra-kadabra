@@ -113,9 +113,13 @@ Projects pin the tag; `/ak:upgrade` defaults to the newest one. Proven by
   directory, has a description, names only `/opt/devshop-current/` files its
   version has and hands over only to skills that exist (`ak:<name>`; the old `devshop:<name>` fails); no two share a name, and
   all the descriptions together stay within the always-loaded budget, 200 words (TARGET Shape 2).
-  A skill past one page (60 lines, 600 words) is a warning, not a failure (D-17).
+  A skill past one page (60 lines, 600 words) is a warning, not a failure (D-17). Every section
+  reference between skills (`ak:pr` § 3, `intent`, step 5, a guideline's § heading) must name a
+  heading that exists; no wording is checked.
   Run on the real skills by
-  [`tests/skills-check.test.sh`](../tests/skills-check.test.sh), after feeding it bad ones.
+  [`tests/skills-check.test.sh`](../tests/skills-check.test.sh), after feeding it bad ones. That is
+  the free tier of [the skills eval](../tests/skills-eval/README.md); its model tier,
+  `tests/skills-eval.sh`, runs the real skills on a scratch project, by hand when they change.
 
 ## Skills
 

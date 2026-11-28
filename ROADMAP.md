@@ -18,7 +18,10 @@ too; an entry is `Done` when its task is `[x]`.
 | R-4 | 2026-10-16 | The canary as a CI record: production's health checked before the merge and after the deploy, with the read-only token — [W10.10.5](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m) | Done, in the website |
 | R-5 | 2026-10-16 | Build runs gstack's `/design-review` on the preview for every UI change, before `ship`; on a local run, since the preview exists only after `ship` (owner, 2026-10-17: "1. A") — [W10.10.8](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m) | Done, PR #145 |
 | R-6 | 2026-10-16 | The reviewer gets a browser and judges a local run against `DESIGN.md` — [W10.10.4](kit/notes/revamp/workstreams/W10-v2.md#w1010-the-first-real-project--p0--m) | Done, PR #146 |
+| R-16 | 2026-11-04 | Skills regression eval, slice 1: a free check of the skills' rule lines and section references, and one command that runs the real skills on one case — [spec](specs/skills-eval.md) | Done, PR #183 |
 | R-7 | 2026-10-16 | M3: the first real app, the pilot web app on v2, with its React stack home decision — [M3](kit/notes/revamp/workstreams/W10-v2.md#m3--the-pilot-web-app-on-cloudflare), [W10.8.3](kit/notes/revamp/workstreams/W10-v2.md#w108-ui-design-baseline--p1--m) | Open |
+| R-17 | 2026-11-04 | Skills regression eval, slice 2: the go-before-spec (F-NEW-91) and feature-interview (F-NEW-78) cases, after a baseline on `main` | Open |
+| R-18 | 2026-11-04 | Skills regression eval, slice 3 (if wanted): a build smoke case and the design-direction slice case (F-NEW-79) | Open |
 | R-8 | 2026-10-16 | M4: the iOS stack and the Mac; retire v1, with the owner's deferred credential and archive steps — [M4](kit/notes/revamp/workstreams/W10-v2.md#m4--coarse-detailed-when-next), [W0.5, W0.6](kit/notes/revamp/workstreams/W0-groundwork.md) | Open |
 | R-9 | 2026-10-16 | After the revamp: the air-gapped adversarial reviewer as a required check — [PLAN.md § After the revamp](kit/notes/revamp/PLAN.md#after-the-revamp) | Open |
 | R-10 | 2026-10-16 | Every repo keeps a roadmap and a findings log — [W10.9.8](kit/notes/revamp/workstreams/W10-v2.md#w109-m1-close-out--p0--s-each), [spec](specs/findings-and-roadmap.md) | Done, PR #125 |
@@ -39,6 +42,7 @@ too; an entry is `Done` when its task is `[x]`.
 | R-26 | 2026-11-11 | The pilot web app's iOS app, in the web app's own repo, starting with how that repo is organized to hold both; takes turns with R-25 on the local Mac, neither waits for the other to finish (phase 7, part of R-8) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
 | R-30 | 2026-11-12 | The reviewer stops flagging a commit's attribution trailer for naming another model than its own: a trailer's model or co-author is not a finding, while instructions planted in one still are; its own small PR with the reviewer eval, ahead of R-31 | Open |
 | R-31 | 2026-11-12 | A change that alters behaviour a shipped spec describes amends that spec in its own PR (option A′): the change's spec is the one spec it adds, a rename counts as an edit and a deletion is refused, each edit to a spec already on `main` cites the owner's dated decision, and a change that adds no spec is reviewed on its PR's words, never against an older spec (F-NEW-134) | Open |
+| R-19 | 2026-11-04 | A question the owner skipped is asked again, not filled with a default: the rule in `intent`, its eval case written first (F-NEW-88) | Open |
 
 ## R-14: The session-start hook reads the wrong directory after a restart
 
@@ -217,3 +221,58 @@ A'
   `specs/**.md` the change touches as its spec, with nothing to tell a shipped spec from this
   change's. Seen in the F-NEW-132 fix (could-not-run twice, shipped with its note taken out), R-22
   (a superseded-by note, could-not-run) and the games-site change above.
+
+## R-17: Skills regression eval, slice 2
+
+Asked 2026-11-02, in chat, as the brief for the skills regression eval:
+
+```text
+A simple practical no nonsense way to be confident when we make modifications to the skills that they are not regressing.
+```
+
+The split approved 2026-11-04, in chat, by delegating the open questions to the adversarial review
+and taking its answers (the slices and their places here are its answer to "does the split stand"):
+
+```text
+Okay, can you feed this to the adversarial review together with the plan, I guess, and then go with their answers? What I'm thinking is that after you do that, you should build the system and then run it and then see how it goes, because you're gonna get reality check, you're gonna get actual practical evidence whether this is working or not, and then we can iterate from there based on realities and practicalities and not theoretical concerns.
+```
+
+The other slices: R-16, R-18.
+
+### Claude's notes
+
+Cases for F-NEW-91 (graded by turns: the Go line only after a later owner turn says go) and F-NEW-78 (an interview question reaches the owner after the `/spec` call). Each case first gets a 10-run baseline on `main`; a change then runs 3, and 7 more on any fail. Judged on R-16's real numbers.
+
+## R-18: Skills regression eval, slice 3
+
+Asked 2026-11-02, in chat, as the brief for the skills regression eval:
+
+```text
+A simple practical no nonsense way to be confident when we make modifications to the skills that they are not regressing.
+```
+
+The split approved 2026-11-04, in chat, by delegating the open questions to the adversarial review
+and taking its answers (the slices and their places here are its answer to "does the split stand"):
+
+```text
+Okay, can you feed this to the adversarial review together with the plan, I guess, and then go with their answers? What I'm thinking is that after you do that, you should build the system and then run it and then see how it goes, because you're gonna get reality check, you're gonna get actual practical evidence whether this is working or not, and then we can iterate from there based on realities and practicalities and not theoretical concerns.
+```
+
+The other slices: R-16, R-17.
+
+### Claude's notes
+
+Only if R-16 and R-17 show the runner is worth its cost: a one-run build smoke case, and F-NEW-79's case (a UI app with no `DESIGN.md` gets the design direction as its second slice, graded on the committed `ROADMAP.md`).
+
+## R-19: A question the owner skipped is asked again
+
+Asked 2026-11-04, in chat, by delegating "roadmap or keep watching?" on F-NEW-88 to the adversarial
+review and taking its answer (roadmap, as its own change):
+
+```text
+Okay, can you feed this to the adversarial review together with the plan, I guess, and then go with their answers? What I'm thinking is that after you do that, you should build the system and then run it and then see how it goes, because you're gonna get reality check, you're gonna get actual practical evidence whether this is working or not, and then we can iterate from there based on realities and practicalities and not theoretical concerns.
+```
+
+The finding, as logged: a question the owner skipped was taken as "no preference" and a default
+applied, instead of asking again. No skill holds the rule; `intent` is at its one-page limit, so a
+line goes to make room. Seen 2026-10-15 (website session).
