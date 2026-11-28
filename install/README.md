@@ -12,12 +12,13 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
 | [`runtime/`](../runtime)                 | The version the project pins | Every session start                                               |
 
 - **Environment (one per project, D-01 revisited).** The setup script is two lines and never
-  changes: a bare clone of the devshop into `/opt/devshop.git` with a read-only token, then
+  changes: a bare clone of the devshop into `/opt/devshop.git` (public, no token), then
   `git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash`. So whatever is on `main` reaches
   every environment at its next cache rebuild.
-- **`install/bootstrap.sh`** drops the token from the clone's remote URL (keeping the URL itself,
-  L-01), extracts `install/plugin/` to `/opt/devshop-plugin`, records the default version and the
-  copy's date in `/opt/devshop-plugin/versions/` (`default-ref`, `copy-date`), primes
+- **`install/bootstrap.sh`** drops any token from the clone's remote URL (older setup scripts
+  had one; keeping the URL itself, L-01), extracts `install/plugin/` to `/opt/devshop-plugin`,
+  records the default version and the copy's date in `/opt/devshop-plugin/versions/`
+  (`default-ref`, `copy-date`), primes
   `/opt/devshop-current` with the default version (`HEAD`), and installs the plugin, `ak@ak`, at
   user scope, so its skills are `ak:<name>`. It never prompts, runs every step even after a failure, and
   logs to `/tmp/devshop-setup.log`.
