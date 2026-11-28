@@ -18,8 +18,8 @@ step_failed() { log "FAILED: $*"; failed=1; }
 
 log "bootstrap start ref=$REF copy-head=$(git --git-dir="$MIRROR" rev-parse --short "$REF" 2>&1)"
 
-# The setup script clones with the token in the URL: keep the URL it used (no hard-coded account,
-# L-01) but drop the credentials, so the token isn't left in the copy's config.
+# Older setup scripts clone with a token in the URL: keep the URL it used (no hard-coded account,
+# L-01) but drop any credentials, so a token isn't left in the copy's config.
 url=$(git --git-dir="$MIRROR" config --get remote.origin.url) || step_failed "no remote URL in $MIRROR"
 clean=$(printf '%s' "${url:-}" | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\1#')
 [ -z "$clean" ] || git --git-dir="$MIRROR" remote set-url origin "$clean" || step_failed "remote set-url"

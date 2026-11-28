@@ -17,7 +17,8 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   every environment at its next cache rebuild.
 - **`install/bootstrap.sh`** drops any token from the clone's remote URL (older setup scripts
   had one; keeping the URL itself, L-01), extracts `install/plugin/` to `/opt/devshop-plugin`,
-  records the default version and the copy's date in `/opt/devshop-plugin/versions/` (`default-ref`, `copy-date`), primes
+  records the default version and the copy's date in `/opt/devshop-plugin/versions/`
+  (`default-ref`, `copy-date`), primes
   `/opt/devshop-current` with the default version (`HEAD`), and installs the plugin, `ak@ak`, at
   user scope, so its skills are `ak:<name>`. It never prompts, runs every step even after a failure, and
   logs to `/tmp/devshop-setup.log`.
