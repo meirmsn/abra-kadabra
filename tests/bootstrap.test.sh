@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Scenario test for the devshop install (D-01 D). Every cloud environment's setup script is:
-#   git clone -q --bare https://x-access-token:<token>@github.com/<owner>/<repo>.git /opt/devshop.git || true
+#   git clone -q --bare https://github.com/<owner>/<repo>.git /opt/devshop.git || true
 #   git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
 # This test replays line 1 as a local bare clone of the committed HEAD (no network) and line 2
 # verbatim, then runs the installed plugin's SessionStart hook in a project for every pin case.
