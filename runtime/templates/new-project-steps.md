@@ -35,8 +35,8 @@ them.
    `push` true and `admin` false.
 4. **The Claude GitHub App:** give it access to the new repo, so cloud sessions can clone and push.
    Check: the session's clone and its first push work.
-5. **A cloud environment for the repo:** the same two-line setup script as the other projects'
-   environments, and Limited network access with the package registries and GitHub allowed (a
+5. **A cloud environment for the repo:** the two-line setup script quoted at the top of the
+   devshop's `bootstrap.sh` (a plain clone URL, never a token in it), and Limited network access with the package registries and GitHub allowed (a
    stack's hosts are added with its first change). Check: the session's first reply opens with
    the devshop's `DEVSHOP:` line.
 

@@ -289,7 +289,7 @@ setup_env() {
   fi
   git clone -q --bare "$src" /opt/devshop.git
   [ "${1:-main}" = main ] || git --git-dir=/opt/devshop.git update-ref refs/heads/main "refs/heads/$1"
-  # Line 1 clones with the token in the URL; the bootstrap must not keep it (nor name an account).
+  # An older setup script clones with a token in the URL; the bootstrap must not keep it (nor name an account).
   git --git-dir=/opt/devshop.git remote set-url origin "https://x-access-token:FAKE-TOKEN@example.com/acme/devshop.git"
   git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
   # Age the copy: the bootstrap records when it was made (DEVSHOP_TEST_COPY_AGE: a `date -d` offset).
@@ -351,8 +351,8 @@ check() {
   grep '^DEVSHOP:' <<<"$2" | sed 's/^/     /'
 }
 
-# The setup script clones with the token in the URL: the bootstrap drops the token and keeps the
-# URL it was given (no hard-coded account, L-01).
+# An older setup script clones with a token in the URL: the bootstrap drops the token and keeps
+# the URL it was given (no hard-coded account, L-01).
 setup_env
 url=$(git --git-dir=/opt/devshop.git config --get remote.origin.url)
 [ "$url" = "https://example.com/acme/devshop.git" ] || fail "remote URL after bootstrap: '$url', want the clone's URL without the token"
